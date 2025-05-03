@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- Ensure proper rendering and touch zooming disable for mobile -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>2048 Puzzle - Stages</title>
+    <style>
+        /* Basic Reset & Body Styling */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+        }
+
+        html, body {
+            height: 100%; /* Ensure body takes full height */
+            overflow: hidden; /* Prevent scrolling */
+        }
+
+        body {
+            font-family: "Clear Sans", "Helvetica Neue", Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center; /* Center vertically */
+            background-color: #faf8ef;
+            color: #776e65;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            padding: 10px; /* Add some padding around the container */
+        }
+
+        /* Game Container */
+        .game-container {
+            width: 100%;
+            max-width: 500px; /* Max width for larger screens */
+            height: 95%; /* Max height relative to viewport */
+            max-height: 700px; /* Absolute max height */
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px; /* Padding inside container */
+            background-color: #faf8ef; /* Match body */
+        }
+
+        /* Start Screen */
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(250, 248, 239, 0.9); /* Slightly more opaque */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 100; /* High z-index */
+            border-radius: 6px;
+            transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+            visibility: visible;
+            opacity: 1;
+             padding: 20px;
+        }
+
+        #start-screen.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        #start-screen h1 {
+            font-size: clamp(2.5em, 8vw, 3.5em); /* Responsive font size */
+            color: #776e65;
+            margin-bottom: 15px;
+        }
+
+        #start-screen p {
+            font-size: clamp(0.9em, 3vw, 1.1em);
+            margin-bottom: 20px;
+            max-width: 90%;
+            line-height: 1.4;
+        }
+
+        #start-high-score-display {
+            font-size: clamp(1em, 4vw, 1.2em);
+            margin-bottom: 30px;
+            color: #555;
+        }
+        #start-high-score-display span {
+             font-weight: bold;
+             color: #776e65;
+        }
+
+        #start-button {
+            padding: 12px 25px;
+             font-size: clamp(1em, 4vw, 1.2em);
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            background-color: #8f7a66;
+            color: white;
+            border-radius: 5px;
+            transition: background-color 0.2s ease;
+        }
+
+        #start-button:hover {
+            background-color: #776e65;
+        }
+
+
+        /* Game Header */
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 15px; /* Reduced margin */
+            flex-wrap: wrap; /* Allow wrapping on small screens */
+            gap: 10px;
+        }
+
+        .game-header h1 {
+            font-size: clamp(2em, 7vw, 3em);
+            font-weight: bold;
+            margin: 0;
+            flex-shrink: 0; /* Prevent title from shrinking too much */
+        }
+
+        .score-container {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap; /* Allow scores to wrap */
+            justify-content: flex-end; /* Align to the right */
+        }
+
+        .score-box {
+            background-color: #bbada0;
+            padding: 5px 10px; /* Slightly smaller padding */
+            border-radius: 3px;
+            text-align: center;
+            min-width: 60px; /* Smaller min-width */
+            flex-grow: 1; /* Allow boxes to grow */
+            flex-basis: 60px; /* Base width */
+        }
+
+        .score-title {
+            font-size: clamp(0.7em, 2.5vw, 0.8em);
+            color: #eee4da;
+            display: block;
+            margin-bottom: 1px;
+            font-weight: normal;
+            text-transform: uppercase;
+        }
+
+        .score-value {
+            font-size: clamp(1.1em, 4vw, 1.4em);
+            font-weight: bold;
+            color: white;
+             line-height: 1.1;
+        }
+
+        /* Controls Area */
+         .controls {
+            width: 100%;
+            display: flex;
+            justify-content: flex-end; /* Align button to the right */
+            align-items: center;
+            margin-bottom: 15px; /* Reduced margin */
+        }
+
+        #new-game-button {
+            padding: 8px 12px; /* Smaller button */
+            font-size: clamp(0.9em, 3vw, 1em);
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            background-color: #8f7a66;
+            color: white;
+            border-radius: 3px;
+            transition: background-color 0.2s ease;
+            margin-left: auto; /* Push to the right */
+        }
+
+        #new-game-button:hover {
+            background-color: #776e65;
+        }
+
+        /* Game Board Area*/
+        #game-board-area {
+             width: 100%;
+             /* Calculate height to be square based on width */
+             height: 0;
+             padding-bottom: 100%; /* Aspect ratio 1:1 */
+             position: relative; /* Anchor for board and tiles */
+             margin-top: auto; /* Push board towards bottom if space allows */
+             margin-bottom: auto;
+        }
+
+
+        /* Game Board Background Grid */
+        #game-board-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #bbada0;
+            border-radius: 6px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: clamp(8px, 2vw, 15px); /* Responsive gap */
+            padding: clamp(8px, 2vw, 15px); /* Responsive padding */
+            z-index: 1;
+        }
+
+        .grid-cell {
+            background-color: rgba(238, 228, 218, 0.35);
+            border-radius: 3px;
+        }
+
+        /* Tile Container - On top of grid */
+         #tile-container {
+             position: absolute;
+             top: 0;
+             left: 0;
+             width: 100%;
+             height: 100%;
+             z-index: 2;
+             /* Padding/gap is handled by tile positioning calculations */
+             pointer-events: none; /* Don't block interaction with board below if needed */
+        }
+
+        /* Tiles */
+        .tile {
+            position: absolute;
+            /* Width and Height calculated by JS */
+            border-radius: 3px;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: clamp(1.2em, 5vw, 2.5em); /* Responsive font size */
+            transition: top 0.1s ease-out, left 0.1s ease-out; /* Movement transition */
+            /* Background/color transition handled by spawn/merge */
+            z-index: 2;
+            user-select: none; /* Prevent text selection */
+        }
+
+        /* Adjust font size for larger numbers */
+        .tile[data-value="128"], .tile[data-value="256"], .tile[data-value="512"] { font-size: clamp(1em, 4.5vw, 2em); }
+        .tile[data-value="1024"], .tile[data-value="2048"] { font-size: clamp(0.8em, 4vw, 1.7em); }
+        .tile[data-value="4096"], .tile[data-value="8192"] { font-size: clamp(0.7em, 3.5vw, 1.5em); }
+
+
+        /* Tile Colors */
+        .tile[data-value="2"]    { background-color: #eee4da; color: #776e65; }
+        .tile[data-value="4"]    { background-color: #ede0c8; color: #776e65; }
+        .tile[data-value="8"]    { background-color: #f2b179; color: #f9f6f2; }
+        .tile[data-value="16"]   { background-color: #f59563; color: #f9f6f2; }
+        .tile[data-value="32"]   { background-color: #f67c5f; color: #f9f6f2; }
+        .tile[data-value="64"]   { background-color: #f65e3b; color: #f9f6f2; }
+        .tile[data-value="128"]  { background-color: #edcf72; color: #f9f6f2; }
+        .tile[data-value="256"]  { background-color: #edcc61; color: #f9f6f2; }
+        .tile[data-value="512"]  { background-color: #edc850; color: #f9f6f2; }
+        .tile[data-value="1024"] { background-color: #edc53f; color: #f9f6f2; }
+        .tile[data-value="2048"] { background-color: #edc22e; color: #f9f6f2; }
+        .tile[data-value="4096"] { background-color: #3c3a32; color: #f9f6f2; }
+        .tile[data-value="8192"] { background-color: #35332d; color: #f9f6f2; }
+
+
+        /* Tile Animations */
+        .tile-new {
+            animation: spawn 0.2s ease-out;
+        }
+        .tile-merged {
+            animation: merge 0.2s ease-in-out;
+            z-index: 3; /* Ensure merged tiles are briefly on top */
+        }
+
+        @keyframes spawn {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes merge {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        /* Game Over / Win / Stage Overlay */
+        .game-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(250, 248, 239, 0.85); /* Consistent overlay */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 50; /* Below start screen, above game */
+            border-radius: 6px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.4s ease-in-out, visibility 0.4s ease-in-out;
+             padding: 20px;
+        }
+
+        .game-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .game-overlay h2 {
+            font-size: clamp(1.8em, 6vw, 3em);
+            margin-bottom: 15px;
+            font-weight: bold;
+            color: #776e65; /* Default color */
+        }
+        #win-overlay h2, #stage-clear-overlay h2 { color: #8f7a66; } /* Win/Stage color */
+
+
+        .game-overlay p {
+            font-size: clamp(1em, 3.5vw, 1.2em);
+            margin-bottom: 25px;
+        }
+
+        .overlay-button {
+            padding: 10px 20px;
+            font-size: clamp(0.9em, 3.5vw, 1.1em);
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            background-color: #8f7a66;
+            color: white;
+            border-radius: 5px;
+            transition: background-color 0.2s ease;
+            margin-top: 10px;
+        }
+
+        .overlay-button:hover {
+            background-color: #776e65;
+        }
+         .button-group {
+             display: flex;
+             gap: 15px;
+             flex-wrap: wrap; /* Allow wrapping */
+             justify-content: center;
+         }
+
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+
+        <!-- Start Screen -->
+        <div id="start-screen">
+            <h1>2048</h1>
+            <p>Use **Arrow Keys** or **Swipe** to move tiles. Merge numbers to reach the target tile!</p>
+            <div id="start-high-score-display">High Score: <span>0</span></div>
+            <button id="start-button" class="overlay-button">Start Game</button>
+        </div>
+
+        <!-- Game Area -->
+        <div class="game-header">
+            <h1>2048</h1>
+             <div class="score-container">
+                 <div class="score-box">
+                     <span class="score-title">STAGE</span>
+                     <span class="score-value" id="stage-display">1</span>
+                 </div>
+                 <div class="score-box">
+                     <span class="score-title">TARGET</span>
+                     <span class="score-value" id="target-display">64</span>
+                 </div>
+                <div class="score-box">
+                    <span class="score-title">SCORE</span>
+                    <span class="score-value" id="score-display">0</span>
+                </div>
+                <div class="score-box">
+                    <span class="score-title">BEST</span>
+                    <span class="score-value" id="high-score-display">0</span>
+                </div>
+             </div>
+        </div>
+         <div class="controls">
+             <button id="new-game-button">New Game</button>
+         </div>
+
+
+        <div id="game-board-area">
+             <div id="game-board-grid">
+                 <!-- Background Grid Cells generated by JS -->
+             </div>
+             <div id="tile-container">
+                  <!-- Tiles will be added here dynamically by JS -->
+             </div>
+
+             <!-- Overlays -->
+             <div id="game-over-overlay" class="game-overlay">
+                 <h2>Game Over!</h2>
+                 <p id="game-over-score">Your Score: 0</p>
+                 <button id="try-again-button-lose" class="overlay-button">Try Again</button>
+             </div>
+
+             <div id="stage-clear-overlay" class="game-overlay">
+                  <h2>Stage Cleared!</h2>
+                  <p id="stage-clear-message">Reached the <span id="stage-clear-target">X</span> tile!</p>
+                  <button id="continue-button" class="overlay-button">Continue</button>
+             </div>
+
+             <div id="win-overlay" class="game-overlay">
+                 <h2>You Win!</h2>
+                 <p>You reached the final 2048 tile!</p>
+                 <p id="win-final-score">Final Score: 0</p>
+                  <button id="try-again-button-win" class="overlay-button">Play Again</button>
+                  <!-- Maybe add "Keep Going" later if needed -->
+             </div>
+        </div>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const gameBoardGrid = document.getElementById('game-board-grid');
+            const tileContainer = document.getElementById('tile-container');
+            const scoreDisplay = document.getElementById('score-display');
+            const highScoreDisplay = document.getElementById('high-score-display');
+            const stageDisplay = document.getElementById('stage-display');
+            const targetDisplay = document.getElementById('target-display');
+            const startHighScoreDisplay = document.getElementById('start-high-score-display').querySelector('span');
+            const startScreen = document.getElementById('start-screen');
+            const startButton = document.getElementById('start-button');
+            const newGameButton = document.getElementById('new-game-button');
+            // Overlays & Buttons
+            const gameOverOverlay = document.getElementById('game-over-overlay');
+            const stageClearOverlay = document.getElementById('stage-clear-overlay');
+            const winOverlay = document.getElementById('win-overlay');
+            const tryAgainButtonLose = document.getElementById('try-again-button-lose');
+            const tryAgainButtonWin = document.getElementById('try-again-button-win');
+            const continueButton = document.getElementById('continue-button');
+            const gameOverScoreDisplay = document.getElementById('game-over-score');
+            const stageClearTargetDisplay = document.getElementById('stage-clear-target');
+            const winFinalScoreDisplay = document.getElementById('win-final-score');
+
+
+            // --- Game Constants & Config ---
+            const GRID_SIZE = 4;
+            const STAGES = [64, 128, 256, 512, 1024, 2048]; // Target tiles for each stage
+            const WIN_TILE = 2048; // Final goal
+
+            // --- Game State Variables ---
+            let board = []; // 2D array representing tile values (0 for empty)
+            let score = 0;
+            let highScore = 0;
+            let currentStage = 0; // Index in STAGES array
+            let currentTargetValue = STAGES[currentStage];
+            let isGameOver = false;
+            let gameWon = false; // Reached final target (2048)
+            let moveInProgress = false; // Prevent input during animation/logic
+            let tileIdCounter = 0; // For unique tile IDs
+            let tiles = {}; // Store tile objects { id: { element, value, r, c } }
+
+
+            // --- High Score ---
+            function loadHighScore() {
+                const storedHighScore = localStorage.getItem('2048_highScore_stages');
+                highScore = storedHighScore ? parseInt(storedHighScore, 10) : 0;
+                updateUIDisplays();
+            }
+
+            function saveHighScore() {
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('2048_highScore_stages', highScore.toString());
+                    updateUIDisplays();
+                }
+            }
+
+            // --- UI Updates ---
+            function updateUIDisplays() {
+                 scoreDisplay.textContent = score;
+                 highScoreDisplay.textContent = highScore;
+                 startHighScoreDisplay.textContent = highScore;
+                 stageDisplay.textContent = currentStage + 1;
+                 targetDisplay.textContent = currentTargetValue;
+            }
+
+            // --- Board Setup ---
+            function createBackgroundGrid() {
+                 gameBoardGrid.innerHTML = ''; // Clear previous cells
+                 for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('grid-cell');
+                    gameBoardGrid.appendChild(cell);
+                 }
+            }
+
+            function initializeGame() {
+                board = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(0));
+                tiles = {};
+                tileContainer.innerHTML = ''; // Clear visual tiles
+                tileIdCounter = 0;
+                score = 0;
+                currentStage = 0;
+                currentTargetValue = STAGES[currentStage];
+                isGameOver = false;
+                gameWon = false;
+                moveInProgress = false;
+
+                hideOverlays();
+                updateUIDisplays();
+                addRandomTile();
+                addRandomTile();
+            }
+
+             function hideOverlays() {
+                 gameOverOverlay.classList.remove('visible');
+                 stageClearOverlay.classList.remove('visible');
+                 winOverlay.classList.remove('visible');
+             }
+
+            // --- Tile Management & Rendering ---
+            function getTileSizeAndGap() {
+                const boardWidth = gameBoardGrid.offsetWidth; // Use the grid's actual rendered width
+                const padding = parseFloat(window.getComputedStyle(gameBoardGrid).paddingLeft); // Get padding
+                const gap = parseFloat(window.getComputedStyle(gameBoardGrid).gap); // Get gap
+                const totalGap = gap * (GRID_SIZE - 1);
+                const totalPadding = padding * 2;
+                const tileSize = (boardWidth - totalPadding - totalGap) / GRID_SIZE;
+                return { tileSize, gap, padding };
+            }
+
+            function getTilePosition(r, c) {
+                const { tileSize, gap, padding } = getTileSizeAndGap();
+                const top = padding + r * (tileSize + gap);
+                const left = padding + c * (tileSize + gap);
+                return { top, left, size: tileSize };
+            }
+
+            function createTileElement(value, r, c) {
+                const tileId = ++tileIdCounter;
+                const tile = document.createElement('div');
+                const { top, left, size } = getTilePosition(r, c);
+
+                tile.classList.add('tile');
+                tile.dataset.value = value; // For CSS styling
+                tile.dataset.id = tileId;
+                tile.textContent = value;
+                tile.style.width = `${size}px`;
+                tile.style.height = `${size}px`;
+                tile.style.top = `${top}px`;
+                tile.style.left = `${left}px`;
+
+                // Add tile data to our tracking object
+                 tiles[tileId] = { id: tileId, element: tile, value: value, r: r, c: c, mergedInto: null };
+
+                tileContainer.appendChild(tile);
+                return tiles[tileId];
+            }
+
+            function updateTileElement(tileData, newValue, newR, newC, isMerged = false) {
+                const { element } = tileData;
+                const { top, left, size } = getTilePosition(newR, newC);
+
+                // Update data
+                tileData.value = newValue;
+                tileData.r = newR;
+                tileData.c = newC;
+
+                 // Update DOM
+                 element.textContent = newValue;
+                 element.dataset.value = newValue; // Update value for styling
+                 element.style.width = `${size}px`; // Ensure size is correct on resize
+                 element.style.height = `${size}px`;
+                 element.style.top = `${top}px`;
+                 element.style.left = `${left}px`;
+
+                 // Handle merge animation
+                 if (isMerged) {
+                     element.classList.add('tile-merged');
+                     element.addEventListener('animationend', () => {
+                         element.classList.remove('tile-merged');
+                     }, { once: true });
+                 }
+            }
+
+             function removeTileElement(tileData) {
+                if (!tileData || !tileData.element) return;
+                tileData.element.remove();
+                delete tiles[tileData.id];
+            }
+
+            // --- Tile Spawning ---
+            function getEmptyCells() {
+                const cells = [];
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        if (board[r][c] === 0) {
+                            cells.push({ r, c });
+                        }
+                    }
+                }
+                return cells;
+            }
+
+            function addRandomTile() {
+                const emptyCells = getEmptyCells();
+                if (emptyCells.length === 0) return false;
+
+                const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+                const value = Math.random() < 0.9 ? 2 : 4;
+                board[r][c] = value; // Update logical board
+
+                // Create and animate the new tile element
+                 const tileData = createTileElement(value, r, c);
+                 tileData.element.classList.add('tile-new');
+                 tileData.element.addEventListener('animationend', () => {
+                     tileData.element.classList.remove('tile-new');
+                 }, { once: true });
+
+                return true;
+            }
+
+            // --- Movement Logic ---
+            // Helper to get tile data at a specific board location
+            function getTileAt(r, c) {
+                 for (const id in tiles) {
+                     if (tiles[id].r === r && tiles[id].c === c && !tiles[id].mergedInto) {
+                         return tiles[id];
+                     }
+                 }
+                 return null;
+            }
+
+            // Process a single line (row or column) for moving and merging
+            function processLine(lineIndices) {
+                 let lineChanged = false;
+                 let pointsEarned = 0;
+                 let stageClearedThisMove = false;
+
+                 let currentLineTiles = lineIndices.map(({r, c}) => getTileAt(r,c)).filter(tile => tile != null);
+                 let newLineValues = Array(GRID_SIZE).fill(0);
+                 let movedTiles = []; // Store { tileData, newR, newC }
+                 let mergedTiles = []; // Store { mergedValue, targetTile, sourceTile, r, c }
+
+
+                 let writeIndex = 0;
+                 let mergeCandidate = null;
+
+                 for (let i = 0; i < currentLineTiles.length; i++) {
+                      let currentTile = currentLineTiles[i];
+                      let targetPos = lineIndices[writeIndex]; // Potential new position {r, c}
+
+                      if (mergeCandidate && mergeCandidate.value === currentTile.value) {
+                         // --- Merge ---
+                         const mergedValue = currentTile.value * 2;
+                         newLineValues[writeIndex - 1] = mergedValue; // Update logical value
+                         pointsEarned += mergedValue;
+
+                         // Mark source tile for removal, target tile for update
+                         currentTile.mergedInto = mergeCandidate.id;
+                         mergedTiles.push({
+                              mergedValue: mergedValue,
+                              targetTile: mergeCandidate,
+                              sourceTile: currentTile,
+                              r: targetPos.r, // Position of the merge target
+                              c: targetPos.c
+                         });
+
+                         // Check stage clear/win
+                         if (mergedValue === currentTargetValue && currentTargetValue <= WIN_TILE) {
+                              stageClearedThisMove = true;
+                         }
+                          if(mergedValue === WIN_TILE) {
+                             gameWon = true;
+                         }
+
+
+                         mergeCandidate = null; // Reset merge candidate after merge
+                         lineChanged = true;
+
+                     } else {
+                          // --- Move or Stay ---
+                          if (mergeCandidate) writeIndex++; // Move past the previous merge candidate
+                          targetPos = lineIndices[writeIndex]; // Update target position
+
+                         newLineValues[writeIndex] = currentTile.value; // Place tile value in logical array
+
+                         if(currentTile.r !== targetPos.r || currentTile.c !== targetPos.c) {
+                              movedTiles.push({ tileData: currentTile, newR: targetPos.r, newC: targetPos.c });
+                             lineChanged = true;
+                         }
+
+                         mergeCandidate = currentTile; // This tile becomes the next merge candidate
+                         // Don't increment writeIndex yet if it's the first tile or after a merge
+                         if (i < currentLineTiles.length -1 && !mergedTiles.find(m => m.sourceTile.id === currentTile.id || m.targetTile.id === currentTile.id)) {
+                            // Only increment writeIndex if not merging and not last tile
+                         }
+                          // Ensure writeIndex doesn't exceed bounds if no merge happens on last tile
+                          if (i === currentLineTiles.length - 1 && !mergedTiles.find(m => m.sourceTile.id === currentTile.id || m.targetTile.id === currentTile.id)) {
+                              // No action needed, handled by loop structure
+                          }
+
+                         // If this tile didn't merge, it might be the next merge candidate
+                         if (!mergedTiles.find(m => m.sourceTile.id === currentTile.id)) {
+                             mergeCandidate = currentTile;
+                         } else {
+                              mergeCandidate = null; // Reset if it was the source of a merge
+                         }
+                     }
+                      // Increment writeIndex ONLY if the current tile wasn't the SOURCE of a merge
+                      if (!mergedTiles.find(m => m.sourceTile.id === currentTile.id)) {
+                           if (mergeCandidate) { // If there's a merge candidate waiting
+                                // Only increment if the next tile isn't going to merge with it
+                                if (i + 1 >= currentLineTiles.length || currentLineTiles[i+1].value !== mergeCandidate.value) {
+                                     writeIndex++;
+                                }
+                            }
+                      }
+
+
+                 }
+
+
+                 return { newLineValues, movedTiles, mergedTiles, lineChanged, pointsEarned, stageClearedThisMove };
+            }
+
+
+            // Main move function triggered by input
+            async function move(direction) {
+                if (isGameOver || gameWon || moveInProgress) return;
+                moveInProgress = true;
+
+                let boardChanged = false;
+                let totalPointsEarned = 0;
+                let stageCleared = false;
+
+                 const moveData = { moved: [], merged: [], added: [] }; // To track changes for rendering
+
+                 // Define traversal order based on direction
+                const traversals = {
+                    ArrowUp:    { x: [0, 1, 2, 3], y: [0, 1, 2, 3] }, // Process columns top-to-bottom
+                    ArrowDown:  { x: [0, 1, 2, 3], y: [3, 2, 1, 0] }, // Process columns bottom-to-top
+                    ArrowLeft:  { x: [0, 1, 2, 3], y: [0, 1, 2, 3] }, // Process rows left-to-right
+                    ArrowRight: { x: [3, 2, 1, 0], y: [0, 1, 2, 3] }  // Process rows right-to-left
+                 };
+
+                 const isVertical = (direction === 'ArrowUp' || direction === 'ArrowDown');
+                 const traversal = traversals[direction];
+
+                 let newBoardState = board.map(row => [...row]); // Create a copy for the new logical state
+
+
+                 for (const y of traversal.y) {
+                     let lineIndices = [];
+                     for (const x of traversal.x) {
+                         lineIndices.push(isVertical ? { r: x, c: y } : { r: y, c: x });
+                     }
+
+                     const { newLineValues, movedTiles, mergedTiles, lineChanged, pointsEarned, stageClearedThisMove } = processLine(lineIndices);
+
+                     if (lineChanged) boardChanged = true;
+                     if (stageClearedThisMove) stageCleared = true;
+                     totalPointsEarned += pointsEarned;
+
+                      // Update the newBoardState based on newLineValues
+                     lineIndices.forEach((pos, index) => {
+                         newBoardState[pos.r][pos.c] = newLineValues[index];
+                     });
+
+                     // --- Animate Moves and Merges for this line ---
+                     // Update positions of moved tiles
+                      movedTiles.forEach(({ tileData, newR, newC }) => {
+                          updateTileElement(tileData, tileData.value, newR, newC);
+                      });
+
+                      // Handle merges: update target, remove source
+                     mergedTiles.forEach(({ mergedValue, targetTile, sourceTile, r, c }) => {
+                         updateTileElement(targetTile, mergedValue, r, c, true); // Animate target
+                         removeTileElement(sourceTile); // Remove source
+                     });
+                 }
+
+                 // Update the main logical board AFTER processing all lines
+                  board = newBoardState;
+
+
+                 // --- Post-Move Actions ---
+                 if (boardChanged) {
+                     score += totalPointsEarned;
+                     saveHighScore();
+                     updateUIDisplays();
+
+                     // Wait briefly for move/merge animations before adding new tile
+                     await new Promise(resolve => setTimeout(resolve, 110)); // Slightly longer than transition
+
+                     addRandomTile();
+
+                     if (!canMove()) {
+                         checkGameOver();
+                     } else if (stageCleared) {
+                          handleStageClear();
+                     } else if (gameWon) { // Check if final win condition met (2048)
+                          handleGameWin();
+                     }
+
+                 } else {
+                      // If board didn't change, still check if game is over
+                      if (!canMove()) {
+                         checkGameOver();
+                      }
+                 }
+
+                moveInProgress = false;
+            }
+
+
+            // --- Game State Checks ---
+            function canMove() {
+                if (getEmptyCells().length > 0) return true; // Empty cells exist
+
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        if (c + 1 < GRID_SIZE && board[r][c] === board[r][c+1]) return true; // Check right
+                        if (r + 1 < GRID_SIZE && board[r][c] === board[r+1][c]) return true; // Check down
+                    }
+                }
+                return false; // No empty cells, no merges possible
+            }
+
+            function checkGameOver() {
+                 if (!gameWon && !canMove()) { // Only trigger game over if not won
+                     isGameOver = true;
+                     gameOverScoreDisplay.textContent = `Your Score: ${score}`;
+                     gameOverOverlay.classList.add('visible');
+                     moveInProgress = true; // Block input on game over screen
+                 }
+            }
+
+            function handleStageClear() {
+                 stageClearTargetDisplay.textContent = currentTargetValue;
+                 stageClearOverlay.classList.add('visible');
+                 moveInProgress = true; // Block input until player continues
+            }
+
+            function handleGameWin() {
+                winFinalScoreDisplay.textContent = `Final Score: ${score}`;
+                 winOverlay.classList.add('visible');
+ moveInProgress = true; // Block input
+            }
+
+            function proceedToNextStage() {
+                currentStage++;
+                if (currentStage < STAGES.length) {
+                    currentTargetValue = STAGES[currentStage];
+                    stageClearOverlay.classList.remove('visible');
+                    updateUIDisplays();
+                    moveInProgress = false; // Allow input again
+                } else {
+                    // This case shouldn't normally be reached if WIN_TILE is the last stage
+                    // If STAGES goes beyond WIN_TILE, handle it here (e.g., "Infinite Mode")
+                     handleGameWin(); // Or treat as win if all defined stages passed
+                }
+            }
+
+            // --- Input Handling ---
+            function handleKeyDown(event) {
+                 if (moveInProgress || startScreen.classList.contains('visible')) return; // Ignore input if busy or start screen active
+
+                 const keyMap = {
+                     'ArrowUp': 'ArrowUp', 'KeyW': 'ArrowUp',
+                     'ArrowDown': 'ArrowDown', 'KeyS': 'ArrowDown',
+                     'ArrowLeft': 'ArrowLeft', 'KeyA': 'ArrowLeft',
+                     'ArrowRight': 'ArrowRight', 'KeyD': 'ArrowRight'
+                 };
+
+                 const direction = keyMap[event.code];
+                 if (direction) {
+                     event.preventDefault(); // Prevent page scrolling
+                     move(direction);
+                 }
+            }
+
+            // Touch Handling Variables
+             let touchStartX = 0;
+             let touchStartY = 0;
+             let touchEndX = 0;
+             let touchEndY = 0;
+
+             function handleTouchStart(event) {
+                 if (moveInProgress || startScreen.classList.contains('visible')) return;
+                 touchStartX = event.touches[0].clientX;
+                 touchStartY = event.touches[0].clientY;
+                 event.preventDefault(); // Prevent scrolling/zooming on touch devices
+             }
+
+             function handleTouchMove(event) {
+                  if (moveInProgress || startScreen.classList.contains('visible')) return;
+                  touchEndX = event.touches[0].clientX;
+                  touchEndY = event.touches[0].clientY;
+                  event.preventDefault(); // Prevent scrolling during swipe
+             }
+
+             function handleTouchEnd(event) {
+                 if (moveInProgress || startScreen.classList.contains('visible')) return;
+                 const deltaX = touchEndX - touchStartX;
+                 const deltaY = touchEndY - touchStartY;
+                 const absDeltaX = Math.abs(deltaX);
+                 const absDeltaY = Math.abs(deltaY);
+
+                 // Reset coordinates for next touch
+                 touchStartX = 0; touchStartY = 0; touchEndX = 0; touchEndY = 0;
+
+                 const swipeThreshold = 30; // Minimum distance for a swipe
+
+                 if (Math.max(absDeltaX, absDeltaY) < swipeThreshold) return; // Not a significant swipe
+
+                 let direction;
+                 if (absDeltaX > absDeltaY) {
+                     direction = deltaX > 0 ? 'ArrowRight' : 'ArrowLeft';
+                 } else {
+                     direction = deltaY > 0 ? 'ArrowDown' : 'ArrowUp';
+                 }
+
+                 move(direction);
+                  event.preventDefault();
+             }
+
+
+            function setupInput() {
+                window.addEventListener('keydown', handleKeyDown);
+
+                // Add touch listeners to the game board area for better targeting
+                 const gameArea = document.querySelector('.game-container'); // Listen on container
+                 gameArea.addEventListener('touchstart', handleTouchStart, { passive: false });
+                 gameArea.addEventListener('touchmove', handleTouchMove, { passive: false });
+                 gameArea.addEventListener('touchend', handleTouchEnd, { passive: false });
+            }
+
+            // --- Initialization ---
+            function init() {
+                loadHighScore();
+                createBackgroundGrid(); // Create the static grid cells once
+                setupInput();
+
+                // Button Listeners
+                 startButton.addEventListener('click', () => {
+                     startScreen.classList.add('hidden');
+                     initializeGame();
+                 });
+                 newGameButton.addEventListener('click', initializeGame);
+                 tryAgainButtonLose.addEventListener('click', initializeGame);
+                 tryAgainButtonWin.addEventListener('click', initializeGame);
+                 continueButton.addEventListener('click', proceedToNextStage);
+
+                 // Handle window resize to adjust tile sizes/positions
+                 window.addEventListener('resize', () => {
+                     // Re-calculate positions for all existing tiles
+                     const { tileSize } = getTileSizeAndGap();
+                     for (const id in tiles) {
+                         const tileData = tiles[id];
+                         const { top, left, size } = getTilePosition(tileData.r, tileData.c);
+                         tileData.element.style.width = `${size}px`;
+                         tileData.element.style.height = `${size}px`;
+                         tileData.element.style.top = `${top}px`;
+                         tileData.element.style.left = `${left}px`;
+                     }
+                 });
+            }
+
+            init(); // Start the setup process
+
+        }); // End DOMContentLoaded
+    </script>
+
+</body>
+</html>
