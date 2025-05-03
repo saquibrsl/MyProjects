@@ -593,3 +593,394 @@
                      }, { once: true });
                  }
             }
+             function removeTileElement(tileData) {
+                if (!tileData || !tileData.element) return;
+                tileData.element.remove();
+                delete tiles[tileData.id];
+            }
+
+            // --- Tile Spawning ---
+            function getEmptyCells() {
+                const cells = [];
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        if (board[r][c] === 0) {
+                            cells.push({ r, c });
+                        }
+                    }
+                }
+                return cells;
+            }
+
+            function addRandomTile() {
+                const emptyCells = getEmptyCells();
+                if (emptyCells.length === 0) return false;
+
+                const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+                const value = Math.random() < 0.9 ? 2 : 4;
+                board[r][c] = value; // Update logical board
+
+                // Create and animate the new tile element
+                 const tileData = createTileElement(value, r, c);
+                 tileData.element.classList.add('tile-new');
+                 tileData.element.addEventListener('animationend', () => {
+                     tileData.element.classList.remove('tile-new');
+                 }, { once: true });
+
+                return true;
+            }
+
+            // --- Movement Logic ---
+            // Helper to get tile data at a specific board location
+            function getTileAt(r, c) {
+                 for (const id in tiles) {
+                     if (tiles[id].r === r && tiles[id].c === c && !tiles[id].mergedInto) {
+                         return tiles[id];
+                     }
+                 }
+                 return null;
+            }
+
+            // Process a single line (row or column) for moving and merging
+            function processLine(lineIndices) {
+                 let lineChanged = false;
+                 let pointsEarned = 0;
+                 let stageClearedThisMove = false;
+
+                 let currentLineTiles = lineIndices.map(({r, c}) => getTileAt(r,c)).filter(tile => tile != null);
+                 let newLineValues = Array(GRID_SIZE).fill(0);
+                 let movedTiles = []; // Store { tileData, newR, newC }
+                 let mergedTiles = []; // Store { mergedValue, targetTile, sourceTile, r, c }
+
+
+                 let writeIndex = 0;
+                 let mergeCandidate = null;
+
+                 for (let i = 0; i < currentLineTiles.length; i++) {
+                      let currentTile = currentLineTiles[i];
+                      let targetPos = lineIndices[writeIndex]; // Potential new position {r, c}
+
+                      if (mergeCandidate && mergeCandidate.value === currentTile.value) {
+                         // --- Merge ---
+                         const mergedValue = currentTile.value * 2;
+                         newLineValues[writeIndex - 1] = mergedValue; // Update logical value
+                         pointsEarned += mergedValue;
+
+                         // Mark source tile for removal, target tile for update
+                         currentTile.mergedInto = mergeCandidate.id;
+                         mergedTiles.push({
+                              mergedValue: mergedValue,
+                              targetTile: mergeCandidate,
+                              sourceTile: currentTile,
+                              r: targetPos.r, // Position of the merge target
+                              c: targetPos.c
+                         });
+
+                         // Check stage clear/win
+                         if (mergedValue === currentTargetValue && currentTargetValue <= WIN_TILE) {
+                              stageClearedThisMove = true;
+                         }
+                          if(mergedValue === WIN_TILE) {
+                             gameWon = true;
+                         }
+
+
+                         mergeCandidate = null; // Reset merge candidate after merge
+                         lineChanged = true;
+
+                     } else {
+                          // --- Move or Stay ---
+                          if (mergeCandidate) writeIndex++; // Move past the previous merge candidate
+                          targetPos = lineIndices[writeIndex]; // Update target position
+
+                         newLineValues[writeIndex] = currentTile.value; // Place tile value in logical array
+
+                         if(currentTile.r !== targetPos.r || currentTile.c !== targetPos.c) {
+                              movedTiles.push({ tileData: currentTile, newR: targetPos.r, newC: targetPos.c });
+                             lineChanged = true;
+                         }
+
+                         mergeCandidate = currentTile; // This tile becomes the next merge candidate
+                         // Don't increment writeIndex yet if it's the first tile or after a merge
+                         if (i < currentLineTiles.length -1 && !mergedTiles.find(m => m.sourceTile.id === currentTile.id || m.targetTile.id === currentTile.id)) {
+                            // Only increment writeIndex if not merging and not last tile
+                         }
+                          // Ensure writeIndex doesn't exceed bounds if no merge happens on last tile
+                          if (i === currentLineTiles.length - 1 && !mergedTiles.find(m => m.sourceTile.id === currentTile.id || m.targetTile.id === currentTile.id)) {
+                              // No action needed, handled by loop structure
+                          }
+
+                         // If this tile didn't merge, it might be the next merge candidate
+                         if (!mergedTiles.find(m => m.sourceTile.id === currentTile.id)) {
+                             mergeCandidate = currentTile;
+                         } else {
+                              mergeCandidate = null; // Reset if it was the source of a merge
+                         }
+                     }
+                      // Increment writeIndex ONLY if the current tile wasn't the SOURCE of a merge
+                      if (!mergedTiles.find(m => m.sourceTile.id === currentTile.id)) {
+                           if (mergeCandidate) { // If there's a merge candidate waiting
+                                // Only increment if the next tile isn't going to merge with it
+                                if (i + 1 >= currentLineTiles.length || currentLineTiles[i+1].value !== mergeCandidate.value) {
+                                     writeIndex++;
+                                }
+                            }
+                      }
+
+
+                 }
+
+
+                 return { newLineValues, movedTiles, mergedTiles, lineChanged, pointsEarned, stageClearedThisMove };
+            }
+
+
+            // Main move function triggered by input
+            async function move(direction) {
+                if (isGameOver || gameWon || moveInProgress) return;
+                moveInProgress = true;
+
+                let boardChanged = false;
+                let totalPointsEarned = 0;
+                let stageCleared = false;
+
+                 const moveData = { moved: [], merged: [], added: [] }; // To track changes for rendering
+
+                 // Define traversal order based on direction
+                const traversals = {
+                    ArrowUp:    { x: [0, 1, 2, 3], y: [0, 1, 2, 3] }, // Process columns top-to-bottom
+                    ArrowDown:  { x: [0, 1, 2, 3], y: [3, 2, 1, 0] }, // Process columns bottom-to-top
+                    ArrowLeft:  { x: [0, 1, 2, 3], y: [0, 1, 2, 3] }, // Process rows left-to-right
+                    ArrowRight: { x: [3, 2, 1, 0], y: [0, 1, 2, 3] }  // Process rows right-to-left
+                 };
+
+                 const isVertical = (direction === 'ArrowUp' || direction === 'ArrowDown');
+                 const traversal = traversals[direction];
+
+                 let newBoardState = board.map(row => [...row]); // Create a copy for the new logical state
+
+
+                 for (const y of traversal.y) {
+                     let lineIndices = [];
+                     for (const x of traversal.x) {
+                         lineIndices.push(isVertical ? { r: x, c: y } : { r: y, c: x });
+                     }
+
+                     const { newLineValues, movedTiles, mergedTiles, lineChanged, pointsEarned, stageClearedThisMove } = processLine(lineIndices);
+
+                     if (lineChanged) boardChanged = true;
+                     if (stageClearedThisMove) stageCleared = true;
+                     totalPointsEarned += pointsEarned;
+
+                      // Update the newBoardState based on newLineValues
+                     lineIndices.forEach((pos, index) => {
+                         newBoardState[pos.r][pos.c] = newLineValues[index];
+                     });
+
+                     // --- Animate Moves and Merges for this line ---
+                     // Update positions of moved tiles
+                      movedTiles.forEach(({ tileData, newR, newC }) => {
+                          updateTileElement(tileData, tileData.value, newR, newC);
+                      });
+
+                      // Handle merges: update target, remove source
+                     mergedTiles.forEach(({ mergedValue, targetTile, sourceTile, r, c }) => {
+                         updateTileElement(targetTile, mergedValue, r, c, true); // Animate target
+                         removeTileElement(sourceTile); // Remove source
+                     });
+                 }
+
+                 // Update the main logical board AFTER processing all lines
+                  board = newBoardState;
+
+
+                 // --- Post-Move Actions ---
+                 if (boardChanged) {
+                     score += totalPointsEarned;
+                     saveHighScore();
+                     updateUIDisplays();
+
+                     // Wait briefly for move/merge animations before adding new tile
+                     await new Promise(resolve => setTimeout(resolve, 110)); // Slightly longer than transition
+
+                     addRandomTile();
+
+                     if (!canMove()) {
+                         checkGameOver();
+                     } else if (stageCleared) {
+                          handleStageClear();
+                     } else if (gameWon) { // Check if final win condition met (2048)
+                          handleGameWin();
+                     }
+
+                 } else {
+                      // If board didn't change, still check if game is over
+                      if (!canMove()) {
+                         checkGameOver();
+                      }
+                 }
+
+                moveInProgress = false;
+            }
+
+
+            // --- Game State Checks ---
+            function canMove() {
+                if (getEmptyCells().length > 0) return true; // Empty cells exist
+
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        if (c + 1 < GRID_SIZE && board[r][c] === board[r][c+1]) return true; // Check right
+                        if (r + 1 < GRID_SIZE && board[r][c] === board[r+1][c]) return true; // Check down
+                    }
+                }
+                return false; // No empty cells, no merges possible
+            }
+
+            function checkGameOver() {
+                 if (!gameWon && !canMove()) { // Only trigger game over if not won
+                     isGameOver = true;
+                     gameOverScoreDisplay.textContent = `Your Score: ${score}`;
+                     gameOverOverlay.classList.add('visible');
+                     moveInProgress = true; // Block input on game over screen
+                 }
+            }
+
+            function handleStageClear() {
+                 stageClearTargetDisplay.textContent = currentTargetValue;
+                 stageClearOverlay.classList.add('visible');
+                 moveInProgress = true; // Block input until player continues
+            }
+
+            function handleGameWin() {
+                winFinalScoreDisplay.textContent = `Final Score: ${score}`;
+                 winOverlay.classList.add('visible');
+ moveInProgress = true; // Block input
+            }
+
+            function proceedToNextStage() {
+                currentStage++;
+                if (currentStage < STAGES.length) {
+                    currentTargetValue = STAGES[currentStage];
+                    stageClearOverlay.classList.remove('visible');
+                    updateUIDisplays();
+                    moveInProgress = false; // Allow input again
+                } else {
+                    // This case shouldn't normally be reached if WIN_TILE is the last stage
+                    // If STAGES goes beyond WIN_TILE, handle it here (e.g., "Infinite Mode")
+                     handleGameWin(); // Or treat as win if all defined stages passed
+                }
+            }
+
+            // --- Input Handling ---
+            function handleKeyDown(event) {
+                 if (moveInProgress || startScreen.classList.contains('visible')) return; // Ignore input if busy or start screen active
+
+                 const keyMap = {
+                     'ArrowUp': 'ArrowUp', 'KeyW': 'ArrowUp',
+                     'ArrowDown': 'ArrowDown', 'KeyS': 'ArrowDown',
+                     'ArrowLeft': 'ArrowLeft', 'KeyA': 'ArrowLeft',
+                     'ArrowRight': 'ArrowRight', 'KeyD': 'ArrowRight'
+                 };
+
+                 const direction = keyMap[event.code];
+                 if (direction) {
+                     event.preventDefault(); // Prevent page scrolling
+                     move(direction);
+                 }
+            }
+
+            // Touch Handling Variables
+             let touchStartX = 0;
+             let touchStartY = 0;
+             let touchEndX = 0;
+             let touchEndY = 0;
+
+             function handleTouchStart(event) {
+                 if (moveInProgress || startScreen.classList.contains('visible')) return;
+                 touchStartX = event.touches[0].clientX;
+                 touchStartY = event.touches[0].clientY;
+                 event.preventDefault(); // Prevent scrolling/zooming on touch devices
+             }
+
+             function handleTouchMove(event) {
+                  if (moveInProgress || startScreen.classList.contains('visible')) return;
+                  touchEndX = event.touches[0].clientX;
+                  touchEndY = event.touches[0].clientY;
+                  event.preventDefault(); // Prevent scrolling during swipe
+             }
+
+             function handleTouchEnd(event) {
+                 if (moveInProgress || startScreen.classList.contains('visible')) return;
+                 const deltaX = touchEndX - touchStartX;
+                 const deltaY = touchEndY - touchStartY;
+                 const absDeltaX = Math.abs(deltaX);
+                 const absDeltaY = Math.abs(deltaY);
+
+                 // Reset coordinates for next touch
+                 touchStartX = 0; touchStartY = 0; touchEndX = 0; touchEndY = 0;
+
+                 const swipeThreshold = 30; // Minimum distance for a swipe
+
+                 if (Math.max(absDeltaX, absDeltaY) < swipeThreshold) return; // Not a significant swipe
+
+                 let direction;
+                 if (absDeltaX > absDeltaY) {
+                     direction = deltaX > 0 ? 'ArrowRight' : 'ArrowLeft';
+                 } else {
+                     direction = deltaY > 0 ? 'ArrowDown' : 'ArrowUp';
+                 }
+
+                 move(direction);
+                  event.preventDefault();
+             }
+
+
+            function setupInput() {
+                window.addEventListener('keydown', handleKeyDown);
+
+                // Add touch listeners to the game board area for better targeting
+                 const gameArea = document.querySelector('.game-container'); // Listen on container
+                 gameArea.addEventListener('touchstart', handleTouchStart, { passive: false });
+                 gameArea.addEventListener('touchmove', handleTouchMove, { passive: false });
+                 gameArea.addEventListener('touchend', handleTouchEnd, { passive: false });
+            }
+
+            // --- Initialization ---
+            function init() {
+                loadHighScore();
+                createBackgroundGrid(); // Create the static grid cells once
+                setupInput();
+
+                // Button Listeners
+                 startButton.addEventListener('click', () => {
+                     startScreen.classList.add('hidden');
+                     initializeGame();
+                 });
+                 newGameButton.addEventListener('click', initializeGame);
+                 tryAgainButtonLose.addEventListener('click', initializeGame);
+                 tryAgainButtonWin.addEventListener('click', initializeGame);
+                 continueButton.addEventListener('click', proceedToNextStage);
+
+                 // Handle window resize to adjust tile sizes/positions
+                 window.addEventListener('resize', () => {
+                     // Re-calculate positions for all existing tiles
+                     const { tileSize } = getTileSizeAndGap();
+                     for (const id in tiles) {
+                         const tileData = tiles[id];
+                         const { top, left, size } = getTilePosition(tileData.r, tileData.c);
+                         tileData.element.style.width = `${size}px`;
+                         tileData.element.style.height = `${size}px`;
+                         tileData.element.style.top = `${top}px`;
+                         tileData.element.style.left = `${left}px`;
+                     }
+                 });
+            }
+
+            init(); // Start the setup process
+
+        }); // End DOMContentLoaded
+    </script>
+
+</body>
+</html>
