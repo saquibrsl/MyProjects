@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Classic Pong Game</title>
+    <style>
+        /* --- Basic Styles --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; overflow: hidden; background-color: #000; color: #fff; font-family: sans-serif; }
+        body { display: flex; flex-direction: column; align-items: center; }
+        button { cursor: pointer; }
+
+        /* --- Header --- */
+        #header-bar { width: 100%; background-color: #1a1a1a; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 1.2em; flex-shrink: 0; }
+        #header-bar .title { font-weight: bold; }
+        #header-bar .menu-dots { font-size: 1.5em; cursor: pointer; line-height: 1; }
+
+        /* --- Game Container --- */
+        #game-container-wrapper { flex-grow: 1; width: 100%; display: flex; justify-content: center; align-items: center; padding: 10px; }
+        #game-container { width: 100%; max-width: 400px; height: 100%; max-height: 700px; position: relative; border: 2px solid #fff; background-color: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
+
+        /* --- Start Screen --- */
+        #start-screen { text-align: center; padding: 20px; width: 100%; }
+        #start-screen h1 { font-size: 2em; margin-bottom: 30px; }
+        #start-screen .mode-selection button { padding: 12px 25px; font-size: 1.1em; background-color: #4CAF50; color: white; border: none; border-radius: 5px; margin: 10px; transition: background-color 0.3s ease; width: 180px; }
+        #start-screen .mode-selection button:hover { background-color: #45a049; }
+        #start-screen .instructions { margin-top: 30px; }
+        #start-screen p { margin-top: 10px; font-size: 1em; }
+        .controls { display: flex; flex-direction: column; align-items: center; margin-top: 20px; width: 100%; font-size: 0.9em; }
+        .controls > div { text-align: center; margin-bottom: 15px; }
+        .controls h2 { margin-bottom: 8px; font-size: 1.1em; }
+        .controls .key { display: inline-block; padding: 4px 7px; margin: 3px; background-color: #333; border: 1px solid #666; border-radius: 4px; font-family: monospace; }
+
+        /* --- Game Area --- */
+        #game-area { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+
+        /* --- Shared Game UI --- */
+        #score-display { position: absolute; top: 15px; width: 100%; text-align: center; z-index: 10; user-select: none; color: #ccc; }
+        #score-display .score-two-player { font-size: 3em; font-weight: bold; }
+        #score-display .score-two-player span { margin: 0 20px; }
+        #score-display .score-single-player { font-size: 1.8em; display: flex; justify-content: space-around; padding: 0 20px; }
+
+        /* --- Game Board --- */
+        #board { width: 100%; height: 100%; position: absolute; top: 0; left: 0; overflow: hidden; }
+
+        /* --- Paddles --- */
+        .paddle { position: absolute; background-color: #fff; }
+        #paddle-left, #paddle-right { width: 10px; height: 80px; }
+        #paddle-left { left: 10px; }
+        #paddle-right { right: 10px; }
+        #paddle-bottom { width: 100px; height: 10px; bottom: 10px; left: 50%; transform: translateX(-50%); }
+
+        /* --- Ball --- */
+        #ball { position: absolute; background-color: #fff; border-radius: 50%; width: 12px; height: 12px; }
+
+        /* Utility class */
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="header-bar">
+         <span class="title">Classic Pong Game</span>
+         <span class="menu-dots">⋮</span>
+    </div>
+
+    <div id="game-container-wrapper">
+        <div id="game-container">
+            <!-- Start Screen -->
+            <div id="start-screen">
+                <h1>Classic Pong Game</h1>
+                <div class="mode-selection">
+                    <button id="start-single-player">Single Player</button><br>
+                    <button id="start-two-player">Two Player</button>
+                </div>
+                <div class="instructions">
+                     <p class="two-player-instructions"><b>Two Player:</b> First to 5 points wins!</p>
+                     <p class="single-player-instructions hidden"><b>Single Player:</b> Survive 5 levels!</p>
+                     <div class="controls two-player-controls">
+                         <div><h2>Player 1 (Left)</h2><div class="key">W</div> Up / <div class="key">S</div> Down</div>
+                         <div><h2>Player 2 (Right)</h2><div class="key">↑</div> Up / <div class="key">↓</div> Down</div>
+                         <p>Touch: Drag on left/right half</p>
+                     </div>
+                     <div class="controls single-player-controls hidden">
+                        <div><h2>Controls</h2><div class="key">←</div> Left / <div class="key">→</div> Right</div>
+                        <p>Touch: Drag horizontally</p>
+                    </div>
+                 </div>
+            </div>
+
+             <!-- Game Area (initially hidden) -->
+            <div id="game-area" class="hidden">
+                <div id="score-display"></div>
+                <div id="board">
+                    <div id="paddle-left" class="paddle hidden"></div>
+                    <div id="paddle-right" class="paddle hidden"></div>
+                    <div id="paddle-bottom" class="paddle hidden"></div>
+                    <div id="ball" class="paddle"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        // (Elements variables assumed defined correctly as before)
+        const startScreen = document.getElementById('start-screen');
+        const startSinglePlayerButton = document.getElementById('start-single-player');
+        const startTwoPlayerButton = document.getElementById('start-two-player');
+        const gameArea = document.getElementById('game-area');
+        const scoreDisplay = document.getElementById('score-display');
+        const board = document.getElementById('board');
+        const paddleLeft = document.getElementById('paddle-left');
+        const paddleRight = document.getElementById('paddle-right');
+        const paddleBottom = document.getElementById('paddle-bottom');
+        const ball = document.getElementById('ball');
+        const gameContainer = document.getElementById('game-container');
+        const twoPlayerInstructions = document.querySelector('.two-player-instructions');
+        const singlePlayerInstructions = document.querySelector('.single-player-instructions');
+        const twoPlayerControls = document.querySelector('.two-player-controls');
+        const singlePlayerControls = document.querySelector('.single-player-controls');
+
+        // --- Game Constants ---
+        // (Constants assumed defined correctly as before)
+        const MAX_SCORE_TWO_PLAYER = 5;
+        const MAX_LEVELS_SINGLE_PLAYER = 5;
+        const HITS_PER_LEVEL = 5;
+        const INITIAL_BALL_SPEED = 3.5;
+        const SPEED_INCREMENT_PER_LEVEL = 0.5;
+        const PADDLE_SPEED_V = 7;
+        const PADDLE_SPEED_H = 8;
+        const PADDLE_HEIGHT_V = 80;
+        const PADDLE_WIDTH_V = 10;
+        const PADDLE_HEIGHT_H = 10;
+        const PADDLE_WIDTH_H = 100;
+        const PADDLE_MARGIN_V = 10;
+        const PADDLE_MARGIN_H = 10;
+        const BALL_SIZE = 12;
+        const BALL_RESET_DELAY = 600;
+        const MIN_Y_SPEED_RATIO = 0.2;
+        const MIN_X_SPEED_RATIO = 0.2;
+
+
+        // --- Game State Variables ---
+        // (State variables assumed defined correctly as before)
+        let currentGameMode = null;
+        let gameStarted = false;
+        let scoreLeft = 0, scoreRight = 0;
+        let paddleLeftY, paddleRightY;
+        let currentLevel = 1, currentScore = 0, totalScore = 0;
+        let paddleBottomX;
+        let ballX, ballY;
+        let ballSpeedX, ballSpeedY;
+        let currentMaxBallSpeed;
+        let ballMoving = false;
+        let ballMovementDelayTimer = null;
+        let boardWidth, boardHeight;
+        const pressedKeys = {};
+        let animationFrameId = null;
+        const activeTouches = new Map();
+
+        // --- Game Setup Functions ---
+        // (setupUIForMode, setElementStyles, completeInitialization, initializeGame assumed correct)
+        function setupUIForMode(mode) {
+            scoreDisplay.innerHTML = '';
+            paddleLeft.classList.add('hidden'); paddleRight.classList.add('hidden'); paddleBottom.classList.add('hidden');
+            if (mode === 'two') {
+                paddleLeft.classList.remove('hidden'); paddleRight.classList.remove('hidden');
+                scoreDisplay.innerHTML = `<div class="score-two-player"><span id="score-left">0</span> - <span id="score-right">0</span></div>`;
+                twoPlayerInstructions.classList.remove('hidden'); singlePlayerInstructions.classList.add('hidden');
+                twoPlayerControls.classList.remove('hidden'); singlePlayerControls.classList.add('hidden');
+            } else if (mode === 'single') {
+                paddleBottom.classList.remove('hidden');
+                scoreDisplay.innerHTML = `<div class="score-single-player"><span id="level-display">Level: 1</span><span id="score-display-single">Hits: 0/${HITS_PER_LEVEL}</span></div>`;
+                twoPlayerInstructions.classList.add('hidden'); singlePlayerInstructions.classList.remove('hidden');
+                twoPlayerControls.classList.add('hidden'); singlePlayerControls.classList.remove('hidden');
+            }
+        }
+        function setElementStyles() {
+             ball.style.width = `${BALL_SIZE}px`; ball.style.height = `${BALL_SIZE}px`;
+             if (currentGameMode === 'two') {
+                paddleLeft.style.width = `${PADDLE_WIDTH_V}px`; paddleLeft.style.height = `${PADDLE_HEIGHT_V}px`; paddleLeft.style.left = `${PADDLE_MARGIN_V}px`;
+                paddleRight.style.width = `${PADDLE_WIDTH_V}px`; paddleRight.style.height = `${PADDLE_HEIGHT_V}px`; paddleRight.style.right = `${PADDLE_MARGIN_V}px`;
+             } else if (currentGameMode === 'single') {
+                paddleBottom.style.width = `${PADDLE_WIDTH_H}px`; paddleBottom.style.height = `${PADDLE_HEIGHT_H}px`; paddleBottom.style.bottom = `${PADDLE_MARGIN_H}px`;
+             }
+        }
+        function completeInitialization() {
+            console.log("Completing initialization...");
+            boardWidth = board.offsetWidth; boardHeight = board.offsetHeight;
+            if (boardWidth <= 0 || boardHeight <= 0) { console.error("Board dimensions invalid."); alert("Error initializing game dimensions."); endGame(); return; }
+            setElementStyles();
+            if (currentGameMode === 'two') {
+                scoreLeft = 0; scoreRight = 0; paddleLeftY = (boardHeight - PADDLE_HEIGHT_V) / 2; paddleRightY = (boardHeight - PADDLE_HEIGHT_V) / 2;
+                paddleLeft.style.top = `${paddleLeftY}px`; paddleRight.style.top = `${paddleRightY}px`;
+            } else if (currentGameMode === 'single') {
+                currentLevel = 1; currentScore = 0; totalScore = 0; paddleBottomX = boardWidth / 2 - PADDLE_WIDTH_H / 2;
+                paddleBottom.style.left = `${paddleBottomX}px`; currentMaxBallSpeed = INITIAL_BALL_SPEED;
+            }
+            updateScoreDisplay(); resetBall(); gameStarted = true; ballMoving = false;
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            console.log(`Starting game loop for mode: ${currentGameMode}`); gameLoop();
+        }
+         function initializeGame(mode) {
+            console.log(`Initializing game mode: ${mode}`); currentGameMode = mode; setupUIForMode(mode);
+            startScreen.classList.add('hidden'); gameArea.classList.remove('hidden');
+            requestAnimationFrame(completeInitialization);
+        }
+
+        // --- Ball and Reset Functions ---
+        // (resetBall, increaseBallSpeed assumed correct)
+         function resetBall(scoredAgainstPlayer = null) {
+            console.log("Resetting ball...");
+            if (!boardWidth || !boardHeight) { console.error("Cannot reset ball - board dimensions missing."); endGame(); return; }
+            if (ballMovementDelayTimer) clearTimeout(ballMovementDelayTimer); ballMoving = false;
+            ballX = boardWidth / 2 - BALL_SIZE / 2; ballY = boardHeight / 2 - BALL_SIZE / 2;
+            let speed = (currentGameMode === 'single') ? currentMaxBallSpeed : INITIAL_BALL_SPEED;
+            let angleRad = 0; let dirX = 1;
+            if (currentGameMode === 'two') {
+                ballY = boardHeight / 2 - BALL_SIZE / 2;
+                dirX = scoredAgainstPlayer === 'left' ? 1 : (scoredAgainstPlayer === 'right' ? -1 : (Math.random() < 0.5 ? 1 : -1));
+                do { angleRad = (Math.random() * Math.PI / 2 - Math.PI / 4); } while (Math.abs(Math.sin(angleRad)) < MIN_Y_SPEED_RATIO);
+                ballSpeedX = dirX * speed * Math.cos(angleRad); ballSpeedY = speed * Math.sin(angleRad);
+            } else {
+                 ballY = BALL_SIZE * 3; dirX = (Math.random() < 0.5 ? 1 : -1);
+                  do { angleRad = (Math.random() * Math.PI * 0.6 - Math.PI * 0.3); } while (Math.abs(Math.cos(angleRad)) < MIN_X_SPEED_RATIO);
+                 ballSpeedX = dirX * speed * Math.cos(angleRad); ballSpeedY = Math.abs(speed * Math.sin(angleRad));
+                 if (ballSpeedY === 0) { ballSpeedY = speed * MIN_Y_SPEED_RATIO; ballSpeedX = dirX * Math.sqrt(speed*speed - ballSpeedY*ballSpeedY); }
+            }
+            ball.style.left = `${ballX}px`; ball.style.top = `${ballY}px`;
+            console.log(`Ball reset. Initial speed: (${ballSpeedX.toFixed(2)}, ${ballSpeedY.toFixed(2)})`);
+            ballMovementDelayTimer = setTimeout(() => { if (!gameStarted) return; console.log("Ball movement enabled via timer."); ballMoving = true; ballMovementDelayTimer = null; }, BALL_RESET_DELAY);
+        }
+        function increaseBallSpeed() {
+             if (currentGameMode !== 'single') return;
+             currentMaxBallSpeed = INITIAL_BALL_SPEED + (currentLevel - 1) * SPEED_INCREMENT_PER_LEVEL;
+             const currentSpeed = Math.sqrt(ballSpeedX * ballSpeedX + ballSpeedY * ballSpeedY);
+             if (currentSpeed < currentMaxBallSpeed * 0.95) { const scaleFactor = currentMaxBallSpeed / currentSpeed; ballSpeedX *= scaleFactor; ballSpeedY *= scaleFactor; console.log(`Speed increased for Level ${currentLevel}.`); }
+         }
+
+        // --- Update and End Game Functions ---
+        // (updateScoreDisplay, checkWinOrLevelUp, handleGameOverSinglePlayer, endGame assumed correct)
+         function updateScoreDisplay() {
+            if (currentGameMode === 'two') {
+                const scoreL = document.getElementById('score-left'); const scoreR = document.getElementById('score-right');
+                if (scoreL) scoreL.textContent = scoreLeft; if (scoreR) scoreR.textContent = scoreRight;
+            } else if (currentGameMode === 'single') {
+                 const levelDisp = document.getElementById('level-display'); const scoreDisp = document.getElementById('score-display-single');
+                 if (levelDisp) levelDisp.textContent = `Level: ${currentLevel}`; if (scoreDisp) scoreDisp.textContent = `Hits: ${currentScore}/${HITS_PER_LEVEL}`;
+            }
+        }
+        function checkWinOrLevelUp() {
+            if (!gameStarted) return false;
+            if (currentGameMode === 'two') {
+                let winner = null;
+                if (scoreLeft >= MAX_SCORE_TWO_PLAYER) winner = 'Player 1'; else if (scoreRight >= MAX_SCORE_TWO_PLAYER) winner = 'Player 2';
+                if (winner) { console.log(`${winner} Wins!`); setTimeout(() => alert(`${winner} Wins!`), 50); endGame(); return true; }
+            } else if (currentGameMode === 'single') {
+                 if (currentScore >= HITS_PER_LEVEL) {
+                     currentLevel++; currentScore = 0;
+                     if (currentLevel > MAX_LEVELS_SINGLE_PLAYER) { console.log("SP Won!"); setTimeout(() => alert(`Cleared all ${MAX_LEVELS_SINGLE_PLAYER} levels! Final Score: ${totalScore}`), 50); endGame(); return true; }
+                     else { console.log(`Level Up! ${currentLevel}`); updateScoreDisplay(); increaseBallSpeed(); }
+                 }
+            }
+            return false;
+        }
+        function handleGameOverSinglePlayer() { console.log("Game Over SP"); setTimeout(() => alert(`Game Over!\nLevel: ${currentLevel}\nTotal Hits: ${totalScore}`), 50); endGame(); }
+        function endGame() {
+             console.log("Ending game."); gameStarted = false; ballMoving = false; currentGameMode = null; activeTouches.clear();
+             if (ballMovementDelayTimer) clearTimeout(ballMovementDelayTimer); ballMovementDelayTimer = null;
+             if (animationFrameId) cancelAnimationFrame(animationFrameId); animationFrameId = null;
+             startScreen.classList.remove('hidden'); gameArea.classList.add('hidden'); for (const key in pressedKeys) pressedKeys[key] = false;
+        }
+
+        // --- Main Game Loop ---
+        function gameLoop() {
+            if (!gameStarted) return;
+
+            // --- Input & Paddle Movement ---
+            if (currentGameMode === 'two') {
+                // Keyboard
+                if (pressedKeys['w'] || pressedKeys['W']) paddleLeftY -= PADDLE_SPEED_V;
+                if (pressedKeys['s'] || pressedKeys['S']) paddleLeftY += PADDLE_SPEED_V;
+                if (pressedKeys['ArrowUp']) paddleRightY -= PADDLE_SPEED_V;
+                if (pressedKeys['ArrowDown']) paddleRightY += PADDLE_SPEED_V;
+                // Touch movement updates paddleLeftY/paddleRightY directly
+                // Clamp Vertical Paddles
+                paddleLeftY = Math.max(0, Math.min(paddleLeftY, boardHeight - PADDLE_HEIGHT_V));
+                paddleRightY = Math.max(0, Math.min(paddleRightY, boardHeight - PADDLE_HEIGHT_V));
+                // Update visuals
+                paddleLeft.style.top = `${paddleLeftY}px`;
+                paddleRight.style.top = `${paddleRightY}px`;
+
+            } else if (currentGameMode === 'single') {
+                // Keyboard
+                 if (pressedKeys['ArrowLeft'] || pressedKeys['a'] || pressedKeys['A']) paddleBottomX -= PADDLE_SPEED_H;
+                 if (pressedKeys['ArrowRight'] || pressedKeys['d'] || pressedKeys['D']) paddleBottomX += PADDLE_SPEED_H;
+                 // Touch movement updates paddleBottomX directly
+                 // Clamp Horizontal Paddle <<< MOVED Clamping AFTER potential touch update
+                 paddleBottomX = Math.max(0, Math.min(paddleBottomX, boardWidth - PADDLE_WIDTH_H));
+                 // Update visual
+                 paddleBottom.style.left = `${paddleBottomX}px`;
+            }
+
+            // --- Ball Logic ---
+            if (ballMoving) {
+                ballX += ballSpeedX;
+                ballY += ballSpeedY;
+
+                let scoredOrBounced = false;
+
+                // --- Wall Collisions ---
+                // Top Wall (Both Modes)
+                if (ballY <= 0) {
+                    ballY = 0; ballSpeedY *= -1; scoredOrBounced = true;
+                    // console.log("Top bounce");
+                 }
+                 // Bottom Wall (Mode Dependent)
+                 else if (ballY >= boardHeight - BALL_SIZE) { // Check if ball reached bottom edge
+                    if (currentGameMode === 'two') { // Bounce in two-player
+                        ballY = boardHeight - BALL_SIZE; ballSpeedY *= -1; scoredOrBounced = true;
+                        // console.log("Bottom bounce (2P)");
+                    } else { // Game Over in single-player (check moved slightly up)
+                         handleGameOverSinglePlayer(); return; // Exit loop
+                    }
+                 }
+
+                // Side Walls (Mode Dependent)
+                if (currentGameMode === 'two') {
+                     // Scoring
+                     if (ballX < -BALL_SIZE) { scoreRight++; updateScoreDisplay(); if (!checkWinOrLevelUp()) { resetBall('left'); } scoredOrBounced = true; }
+                     else if (ballX > boardWidth) { scoreLeft++; updateScoreDisplay(); if (!checkWinOrLevelUp()) { resetBall('right'); } scoredOrBounced = true; }
+                 } else { // Single Player Side Bounce
+                     if (ballX <= 0) { ballX = 0; ballSpeedX *= -1; scoredOrBounced = true; /*console.log("Left bounce (1P)");*/ }
+                     else if (ballX >= boardWidth - BALL_SIZE) { ballX = boardWidth - BALL_SIZE; ballSpeedX *= -1; scoredOrBounced = true; /*console.log("Right bounce (1P)");*/ }
+                 }
+
+                // --- Paddle Collisions ---
+                 if (!scoredOrBounced) {
+                    if (currentGameMode === 'two') {
+                        // (Two player paddle collision logic assumed correct)
+                        const paddleLeftRightEdge = PADDLE_MARGIN_V + PADDLE_WIDTH_V;
+                        const paddleRightLeftEdge = boardWidth - PADDLE_MARGIN_V - PADDLE_WIDTH_V;
+                        if (ballSpeedX < 0 && ballX <= paddleLeftRightEdge && ballX + BALL_SIZE > PADDLE_MARGIN_V && ballY + BALL_SIZE > paddleLeftY && ballY < paddleLeftY + PADDLE_HEIGHT_V) {
+                            ballX = paddleLeftRightEdge; ballSpeedX *= -1;
+                            const hitCenterY = paddleLeftY + PADDLE_HEIGHT_V / 2; const ballCenterY = ballY + BALL_SIZE / 2;
+                            const bounceFactor = (ballCenterY - hitCenterY) / (PADDLE_HEIGHT_V / 2);
+                            ballSpeedY = bounceFactor * INITIAL_BALL_SPEED * 1.3; scoredOrBounced = true;
+                        }
+                        else if (ballSpeedX > 0 && ballX + BALL_SIZE >= paddleRightLeftEdge && ballX < boardWidth - PADDLE_MARGIN_V && ballY + BALL_SIZE > paddleRightY && ballY < paddleRightY + PADDLE_HEIGHT_V) {
+                            ballX = paddleRightLeftEdge - BALL_SIZE; ballSpeedX *= -1;
+                            const hitCenterY = paddleRightY + PADDLE_HEIGHT_V / 2; const ballCenterY = ballY + BALL_SIZE / 2;
+                            const bounceFactor = (ballCenterY - hitCenterY) / (PADDLE_HEIGHT_V / 2);
+                            ballSpeedY = bounceFactor * INITIAL_BALL_SPEED * 1.3; scoredOrBounced = true;
+                        }
+                    } else { // Single Player Bottom Paddle
+                        const paddleTopY = boardHeight - PADDLE_MARGIN_H - PADDLE_HEIGHT_H;
+                        if (ballSpeedY > 0 && ballY + BALL_SIZE >= paddleTopY && ballY < paddleTopY + PADDLE_HEIGHT_H && ballX + BALL_SIZE > paddleBottomX && ballX < paddleBottomX + PADDLE_WIDTH_H) {
+                            ballY = paddleTopY - BALL_SIZE; ballSpeedY *= -1;
+                            currentScore++; totalScore++; updateScoreDisplay(); checkWinOrLevelUp();
+                            const hitCenterX = paddleBottomX + PADDLE_WIDTH_H / 2; const ballCenterX = ballX + BALL_SIZE / 2;
+                            const sideFactor = (ballCenterX - hitCenterX) / (PADDLE_WIDTH_H / 2);
+                            ballSpeedX += sideFactor * 2.0;
+                            const maxHorizSpeed = currentMaxBallSpeed * 1.5; ballSpeedX = Math.max(-maxHorizSpeed, Math.min(maxHorizSpeed, ballSpeedX));
+                             scoredOrBounced = true;
+                        }
+                    }
+                }
+
+                // Update Ball Visuals
+                if (gameStarted && !scoredOrBounced) {
+                    ball.style.left = `${ballX}px`;
+                    ball.style.top = `${ballY}px`;
+                }
+
+            } // End if(ballMoving)
+
+            // Request the next frame
+            if (gameStarted) {
+                animationFrameId = requestAnimationFrame(gameLoop);
+            } else { if (animationFrameId) cancelAnimationFrame(animationFrameId); animationFrameId = null; }
+        }
+
+        // --- Event Listeners ---
+        startSinglePlayerButton.addEventListener('click', () => initializeGame('single'));
+        startTwoPlayerButton.addEventListener('click', () => initializeGame('two'));
+        document.addEventListener('keydown', (event) => {
+            const key = event.key;
+            if (['w', 's', 'W', 'S', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'a', 'd', 'A', 'D'].includes(key)) { event.preventDefault(); }
+            pressedKeys[key] = true;
+        });
+        document.addEventListener('keyup', (event) => { pressedKeys[event.key] = false; });
+
+        // --- Touch Controls ---
+        gameContainer.addEventListener('touchstart', (event) => {
+             if (!gameStarted) return; event.preventDefault(); const containerRect = gameContainer.getBoundingClientRect();
+             for (let touch of event.changedTouches) {
+                 const id = touch.identifier; const clientX = touch.clientX; const clientY = touch.clientY; const relX = clientX - containerRect.left;
+                 if (currentGameMode === 'two') { let side = (relX < containerRect.width / 2) ? 'left' : 'right'; activeTouches.set(id, { lastY: clientY, paddle: side }); }
+                 else if (currentGameMode === 'single') {
+                     // Update state directly, clamping will happen in gameLoop
+                     paddleBottomX = relX - PADDLE_WIDTH_H / 2;
+                     activeTouches.set(id, { lastX: clientX, paddle: 'bottom' });
+                 }
+             }
+         }, { passive: false });
+        gameContainer.addEventListener('touchmove', (event) => {
+            if (!gameStarted || activeTouches.size === 0) return; event.preventDefault(); const containerRect = gameContainer.getBoundingClientRect();
+             for (let touch of event.changedTouches) {
+                 const id = touch.identifier; if (!activeTouches.has(id)) continue; const touchData = activeTouches.get(id); const clientX = touch.clientX; const clientY = touch.clientY;
+                  if (currentGameMode === 'two') { const deltaY = clientY - touchData.lastY; if (touchData.paddle === 'left') { paddleLeftY += deltaY; } else if (touchData.paddle === 'right') { paddleRightY += deltaY; } touchData.lastY = clientY; }
+                  else if (currentGameMode === 'single') {
+                      const relX = clientX - containerRect.left;
+                      // Update state directly, clamping will happen in gameLoop
+                      paddleBottomX = relX - PADDLE_WIDTH_H / 2;
+                      touchData.lastX = clientX;
+                  }
+             }
+         }, { passive: false });
+        function handleTouchEnd(event) { if (!gameStarted) return; for (let touch of event.changedTouches) { if (activeTouches.has(touch.identifier)) { activeTouches.delete(touch.identifier); } } }
+        gameContainer.addEventListener('touchend', handleTouchEnd);
+        gameContainer.addEventListener('touchcancel', handleTouchEnd);
+
+        // --- Initial Setup ---
+        gameArea.classList.add('hidden'); startScreen.classList.remove('hidden'); console.log("Script ready.");
+
+    </script>
+
+</body>
+</html>
