@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Card Game - Levels & Score</title>
+    <style>
+        /* Basic Reset & Body Styling */
+        * {
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align top to see score/level */
+            min-height: 100vh;
+            background-color: #eef1f5; /* Slightly different bg */
+            padding-top: 20px; /* Space for score/level */
+            perspective: 1200px;
+            overflow-y: auto; /* Allow scrolling if content overflows */
+        }
+
+        /* Game Container */
+        .game-container {
+            width: 95%;
+            max-width: 700px; /* Increased max-width for more cards */
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Top Info Bar (Level & Score) */
+        .info-bar {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            padding: 10px 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            color: #333;
+            opacity: 0; /* Initially hidden */
+            transition: opacity 0.5s ease-in 0.3s;
+        }
+         .info-bar.visible {
+             opacity: 1;
+         }
+
+        #level-display span, #score-display span {
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        /* Start Screen */
+        #start-screen {
+            position: absolute; /* Keep absolute positioning */
+            top: 100px; /* Adjust top position */
+            left: 50%;
+            transform: translateX(-50%); /* Only X transform */
+            width: 90%;
+            max-width: 500px;
+            background-color: white;
+            padding: 30px 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            z-index: 10;
+            transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+            visibility: visible;
+            opacity: 1;
+        }
+
+        #start-screen.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none; /* Prevent interaction when hidden */
+        }
+
+
+        #start-screen h1 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        #start-screen p {
+            margin-bottom: 20px;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .start-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px; /* Space between buttons */
+             margin-top: 20px;
+        }
+
+        #start-button, #how-to-play-button {
+            padding: 12px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.2s ease;
+        }
+
+        #start-button {
+            background-color: #28a745; /* Green */
+            color: white;
+        }
+        #start-button:hover {
+            background-color: #218838;
+        }
+
+        #how-to-play-button {
+            background-color: #6c757d; /* Gray */
+            color: white;
+        }
+        #how-to-play-button:hover {
+            background-color: #5a6268;
+        }
+
+        /* How to Play Instructions Modal */
+        #how-to-play-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 30; /* Above everything */
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        #how-to-play-modal.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 30px 40px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 85%;
+            text-align: left;
+            position: relative; /* For close button */
+        }
+        .modal-content h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .modal-content ul {
+            list-style: disc;
+            margin-left: 20px;
+            margin-bottom: 25px;
+             color: #555;
+             line-height: 1.6;
+        }
+        .modal-content li {
+            margin-bottom: 8px;
+        }
+        #close-modal-button {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #aaa;
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+        #close-modal-button:hover {
+            color: #333;
+        }
+
+
+        /* Game Board */
+        #game-board {
+            display: grid;
+             /* grid-template-columns set by JS */
+            gap: 8px; /* Slightly reduced gap */
+            width: 100%;
+            margin-top: 10px; /* Adjusted margin */
+            opacity: 0; /* Initially hidden */
+            transition: opacity 0.5s ease-in 0.3s; /* Fade in after start */
+        }
+
+        #game-board.visible {
+             opacity: 1;
+        }
+
+        /* Individual Card Styling */
+        .card {
+            background-color: transparent;
+             /* height set dynamically based on columns? Or use aspect-ratio */
+            aspect-ratio: 1 / 1; /* Keep cards square */
+            border-radius: 6px; /* Slightly smaller radius */
+            cursor: pointer;
+            position: relative;
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+            border-radius: 6px;
+        }
+
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 6px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2em; /* Adjust based on card size/number */
+        }
+
+        .card-front {
+            background-color: #ffffff;
+            color: #333;
+            transform: rotateY(180deg);
+        }
+
+        .card-back {
+            background-color: #4a90e2;
+            color: white;
+             content: "?";
+             font-size: 1.8em;
+             font-weight: bold;
+        }
+
+         /* Matched card styling */
+        .card.matched .card-inner {
+            opacity: 0.6;
+            box-shadow: 0 0 5px 2px #28a745;
+            cursor: default;
+        }
+        .card.matched {
+            cursor: default;
+        }
+
+        /* Win Message Overlay */
+        #win-message {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.75); /* Darker overlay */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 20;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        #win-message.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .win-box {
+            background-color: white;
+            padding: 40px 50px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .win-box h2 {
+            color: #28a745;
+            margin-bottom: 15px;
+        }
+         .win-box #final-score {
+            font-size: 1.2em;
+            color: #555;
+            margin-bottom: 25px;
+         }
+        #final-score span {
+             font-weight: bold;
+             color: #007bff;
+        }
+
+        #play-again-button {
+            padding: 12px 25px;
+            font-size: 1em;
+            cursor: pointer;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+            transition: background-color 0.2s ease;
+            margin-top: 10px;
+        }
+
+        #play-again-button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 600px) {
+             body {
+                 padding-top: 10px;
+             }
+            .info-bar {
+                 font-size: 1em;
+                 padding: 8px 15px;
+                 margin-bottom: 15px;
+             }
+             .card-front, .card-back {
+                 font-size: 1.5em; /* Smaller emojis on small screens */
+             }
+             .win-box {
+                 padding: 30px 35px;
+             }
+              #start-screen {
+                 top: 80px; /* Adjust start screen position */
+                 padding: 25px 30px;
+             }
+             .modal-content {
+                  padding: 25px 30px;
+             }
+        }
+        @media (max-width: 400px) {
+            .card-front, .card-back {
+                 font-size: 1.2em; /* Even smaller emojis */
+             }
+             .info-bar {
+                 font-size: 0.9em;
+             }
+              #start-button, #how-to-play-button {
+                 padding: 10px 15px;
+                 font-size: 0.9em;
+             }
+             .start-buttons { gap: 10px; }
+        }
+
+
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <!-- Start Screen -->
+        <div id="start-screen">
+            <h1>Memory Game</h1>
+            <p>Test your memory by matching pairs!</p>
+            <div class="start-buttons">
+                <button id="start-button">Start Game</button>
+                <button id="how-to-play-button">How to Play</button>
+            </div>
+        </div>
+
+        <!-- How to Play Modal -->
+        <div id="how-to-play-modal">
+             <div class="modal-content">
+                 <button id="close-modal-button">×</button>
+                 <h2>How to Play</h2>
+                 <ul>
+                     <li>The game starts with a set of facedown cards.</li>
+                     <li>Click on a card to reveal its symbol.</li>
+                     <li>Click on a second card to reveal its symbol.</li>
+                     <li>If the symbols match, the cards stay faceup. You score +5 points!</li>
+                     <li>If the symbols don't match, the cards flip back facedown. You lose 1 point.</li>
+                     <li>The goal is to find all the matching pairs in each level.</li>
+                     <li>The number of cards increases with each level.</li>
+                 </ul>
+             </div>
+        </div>
+
+        <!-- Info Bar (Visible during game) -->
+        <div class="info-bar" id="info-bar">
+             <div id="level-display">Level: <span>1</span></div>
+             <div id="score-display">Score: <span>0</span></div>
+        </div>
+
+        <!-- Game Board (populated by JS) -->
+        <div id="game-board"></div>
+
+         <!-- Win Message Overlay -->
+        <div id="win-message">
+            <div class="win-box">
+                <h2>Level Complete!</h2>
+                <p id="final-score">Final Score: <span>0</span></p>
+                 <!-- Dynamic message based on whether it's the last level -->
+                <p id="win-message-next"></p>
+                <button id="play-again-button">Play Again (Level 1)</button>
+                <button id="next-level-button" style="display: none;">Next Level</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const gameBoard = document.getElementById('game-board');
+            const startScreen = document.getElementById('start-screen');
+            const startButton = document.getElementById('start-button');
+            const winMessage = document.getElementById('win-message');
+            const playAgainButton = document.getElementById('play-again-button');
+            const nextLevelButton = document.getElementById('next-level-button');
+            const infoBar = document.getElementById('info-bar');
+            const levelDisplay = document.getElementById('level-display').querySelector('span');
+            const scoreDisplay = document.getElementById('score-display').querySelector('span');
+            const finalScoreDisplay = document.getElementById('final-score').querySelector('span');
+            const howToPlayButton = document.getElementById('how-to-play-button');
+            const howToPlayModal = document.getElementById('how-to-play-modal');
+            const closeModalButton = document.getElementById('close-modal-button');
+            const winMessageNext = document.getElementById('win-message-next');
+
+
+            // --- Game Configuration ---
+            const MAX_LEVELS = 10;
+            const BASE_PAIRS = 4; // Pairs in Level 1 (so 8 cards)
+            const PAIRS_INCREMENT = 1; // Pairs to add each level
+            const POINTS_MATCH = 5;
+            const POINTS_MISMATCH = -1;
+            // Expanded symbol pool for up to Level 10 (4 + 9*1 = 13 pairs = 26 cards needed)
+            const symbolsPool = ['🍎', '🍌', '🍇', '🍉', '🍓', '🍒', '🍍', '🥝', '🥑', '🍆', '🍅', '🥕', '🌽', '🍄', '🥦', '🥥', '🍋', '🍊', '🍐', '🍑']; // 20 symbols, enough for 20 pairs
+
+            // --- Game State Variables ---
+            let currentLevel = 1;
+            let currentScore = 0;
+            let cardsArray = [];
+            let flippedCards = [];
+            let matchedPairs = 0;
+            let lockBoard = false; // Prevents clicking more than 2 cards
+            let pairsInLevel = 0;
+
+
+            // --- Utility Functions ---
+            // Shuffle Function (Fisher-Yates Algorithm)
+            function shuffle(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+
+            // Update Score Display
+            function updateScoreDisplay() {
+                scoreDisplay.textContent = currentScore;
+            }
+
+             // Update Level Display
+            function updateLevelDisplay() {
+                levelDisplay.textContent = currentLevel;
+            }
+
+            // Set Grid Columns based on number of cards
+            function setGridColumns(numberOfCards) {
+                let columns = 4; // Default
+                if (numberOfCards > 36) columns = 7; // Example adjustment
+                else if (numberOfCards > 24) columns = 6;
+                else if (numberOfCards > 12) columns = 5; // e.g., for 14, 16, 18, 20, 24 cards
+                // else if (numberOfCards > 8) columns = 4; // e.g., for 10, 12 cards
+
+                gameBoard.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+
+                 // Optional: Adjust card size based on columns
+                 const fontSize = columns > 5 ? '1.5em' : (columns > 4 ? '1.8em' : '2em');
+                 const backFontSize = columns > 5 ? '1.4em' : (columns > 4 ? '1.6em' : '1.8em');
+                 // This requires iterating through cards or setting CSS vars, simpler to keep fixed for now
+                 // document.documentElement.style.setProperty('--card-font-size', fontSize);
+                 // document.documentElement.style.setProperty('--card-back-font-size', backFontSize);
+            }
+
+            // --- Game Logic Functions ---
+            // Create Game Board for the current level
+            function createBoard() {
+                gameBoard.innerHTML = ''; // Clear previous board
+                flippedCards = [];
+                matchedPairs = 0;
+                lockBoard = false;
+                winMessage.classList.remove('visible');
+                infoBar.classList.add('visible'); // Show info bar
+                gameBoard.classList.remove('visible'); // Hide board initially if replaying
+
+                // Calculate pairs for the current level
+                pairsInLevel = BASE_PAIRS + (currentLevel - 1) * PAIRS_INCREMENT;
+                const totalCards = pairsInLevel * 2;
+
+                 // Check if we have enough symbols
+                 if (pairsInLevel > symbolsPool.length) {
+                    console.error("Not enough symbols in symbolsPool for level " + currentLevel);
+                    // Handle this error - maybe display a message or cap the level
+                    alert("Error: Not enough symbols defined for this level!");
+                    return; // Stop game creation
+                }
+
+                // Select symbols for the level, shuffle pool first for variety
+                const levelSymbols = shuffle([...symbolsPool]).slice(0, pairsInLevel);
+                cardsArray = shuffle([...levelSymbols, ...levelSymbols]); // Shuffle cards for the game
+
+                setGridColumns(totalCards); // Adjust grid layout
+
+                // Create card elements
+                cardsArray.forEach(symbol => {
+                    const card = document.createElement('div');
+                    card.classList.add('card');
+                    card.dataset.symbol = symbol;
+
+                    card.innerHTML = `
+                        <div class="card-inner">
+                            <div class="card-front">${symbol}</div>
+                            <div class="card-back"></div>
+                        </div>
+                    `;
+                    // Add event listener directly
+                    card.addEventListener('click', handleCardClick);
+                    gameBoard.appendChild(card);
+                });
+
+                // Update displays
+                updateLevelDisplay();
+                updateScoreDisplay(); // Display score (might be > 0 if continuing)
+
+
+                 // Fade in the board
+                 setTimeout(() => {
+                    gameBoard.classList.add('visible');
+                 }, 100);
+            }
+
+            // Handle Card Click
+            function handleCardClick() {
+                if (lockBoard || this.classList.contains('flipped') || this.classList.contains('matched')) {
+                    return; // Ignore clicks if board locked, card already flipped, or card matched
+                }
+
+                this.classList.add('flipped');
+                flippedCards.push(this);
+
+                if (flippedCards.length === 2) {
+                    lockBoard = true;
+                    checkForMatch();
+                }
+            }
+
+            // Check for Match
+            function checkForMatch() {
+                const [card1, card2] = flippedCards;
+                const isMatch = card1.dataset.symbol === card2.dataset.symbol;
+
+                if (isMatch) {
+                    currentScore += POINTS_MATCH;
+                    disableCards();
+                } else {
+                    currentScore = Math.max(0, currentScore + POINTS_MISMATCH); // Score doesn't go below 0
+                    unflipCards();
+                }
+                updateScoreDisplay(); // Update score display after each check
+            }
+
+            // Disable Matched Cards
+            function disableCards() {
+                flippedCards.forEach(card => {
+                    card.classList.add('matched');
+                    // Optional: Remove event listener to be safe, though class checks handle it
+                    // card.removeEventListener('click', handleCardClick);
+                });
+
+                matchedPairs++;
+                resetTurn(); // Reset for next turn
+
+                // Check for win condition (level complete)
+                if (matchedPairs === pairsInLevel) {
+                    setTimeout(showWinMessage, 500); // Delay win message slightly
+                }
+            }
+
+            // Unflip Non-Matching Cards
+            function unflipCards() {
+                setTimeout(() => {
+                    flippedCards.forEach(card => card.classList.remove('flipped'));
+                    resetTurn(); // Reset for next turn
+                }, 1000); // Wait before flipping back
+            }
+
+            // Reset state after a turn (match or mismatch resolved)
+            function resetTurn() {
+                [flippedCards, lockBoard] = [[], false];
+            }
+
+            // Show Win Message / Level Complete
+             function showWinMessage() {
+                finalScoreDisplay.textContent = currentScore;
+                winMessage.classList.add('visible');
+
+                if (currentLevel < MAX_LEVELS) {
+                    winMessageNext.textContent = `Get ready for level ${currentLevel + 1}!`;
+                    nextLevelButton.style.display = 'inline-block'; // Show next level button
+                    playAgainButton.style.display = 'inline-block'; // Keep play again visible
+                     nextLevelButton.focus(); // Focus for accessibility
+                } else {
+                     winMessageNext.textContent = "You've completed all levels!";
+                    nextLevelButton.style.display = 'none'; // Hide next level button
+                    playAgainButton.style.display = 'inline-block'; // Only show play again
+                    playAgainButton.focus();
+                }
+            }
+
+
+            // --- Initialization and Event Listeners ---
+            function initializeGame(level = 1, score = 0) {
+                 currentLevel = level;
+                 currentScore = score;
+                 startScreen.classList.add('hidden'); // Hide start screen
+                 infoBar.classList.remove('visible'); // Hide info bar until board is ready
+                 gameBoard.classList.remove('visible'); // Ensure board is hidden before creation
+                 createBoard(); // Create and show the game board for the specified level
+            }
+
+            // Start Button
+            startButton.addEventListener('click', () => {
+                initializeGame(1, 0); // Start from level 1, score 0
+            });
+
+            // Play Again Button (always restarts from level 1)
+            playAgainButton.addEventListener('click', () => {
+                winMessage.classList.remove('visible');
+                initializeGame(1, 0);
+            });
+
+             // Next Level Button
+            nextLevelButton.addEventListener('click', () => {
+                 if (currentLevel < MAX_LEVELS) {
+                     winMessage.classList.remove('visible');
+                     initializeGame(currentLevel + 1, currentScore); // Start next level, keep score
+                 }
+            });
+
+
+            // How to Play Button
+            howToPlayButton.addEventListener('click', () => {
+                howToPlayModal.classList.add('visible');
+            });
+
+            // Close Modal Button
+            closeModalButton.addEventListener('click', () => {
+                howToPlayModal.classList.remove('visible');
+            });
+
+            // Close Modal if clicking outside the content
+            howToPlayModal.addEventListener('click', (event) => {
+                 if (event.target === howToPlayModal) { // Check if the click is on the background overlay
+                      howToPlayModal.classList.remove('visible');
+                 }
+            });
+
+
+            // --- Initial Setup ---
+            // Ensure start screen is visible, game elements hidden initially
+            startScreen.classList.remove('hidden');
+            infoBar.classList.remove('visible');
+            gameBoard.classList.remove('visible');
+            winMessage.classList.remove('visible');
+            howToPlayModal.classList.remove('visible');
+
+        }); // End DOMContentLoaded
+    </script>
+
+</body>
+</html>
