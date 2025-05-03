@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xenon Tic-Tac-Toe (Score Tracking)</title>
+
+    <style>
+        /* --- Xenon Color Palette --- */
+        :root {
+            --cyan: #21f7ff;        /* Bright Cyan for X, borders, titles */
+            --magenta: #ff24ff;     /* Bright Magenta for O */
+            --yellow: #fff021;      /* Bright Yellow for prompts, status */
+            --white: #ffffff;       /* Bright White for text */
+            --dark-bg: #1a1a2e;     /* Dark blue/purple background */
+            --cell-bg: #2a2a4a;     /* Slightly lighter cell background */
+            --border-glow: 0 0 5px var(--cyan), 0 0 10px var(--cyan), 0 0 15px var(--cyan);
+            --button-bg: transparent;
+            --button-border: var(--cyan);
+            --button-text: var(--cyan);
+            --button-hover-bg: var(--cyan);
+            --button-hover-text: var(--dark-bg);
+            --grey: #aaaaaa;        /* Grey for back button or other elements */
+        }
+
+        /* --- Basic Reset & Body Styles --- */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: var(--dark-bg);
+            color: var(--white);
+            overflow: hidden; /* Prevent scrollbars if content slightly overflows */
+        }
+
+        /* --- Screen Management --- */
+        .screen {
+            display: none; /* Hide screens by default */
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 20px 30px 30px 30px; /* Adjusted padding */
+            background-color: rgba(42, 42, 74, 0.5); /* Semi-transparent cell bg */
+            border-radius: 15px;
+            border: 2px solid var(--cyan);
+            box-shadow: var(--border-glow);
+            animation: fadeIn 0.5s ease-in-out;
+            max-width: 90%; /* Ensure it fits on smaller screens */
+            width: 450px; /* Max width for consistency */
+        }
+
+        .screen.active {
+            display: flex; /* Show the active screen */
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* --- Titles & Text --- */
+        h1 {
+            color: var(--cyan);
+            margin-bottom: 15px; /* Reduced margin */
+            font-size: 2.2em; /* Slightly smaller */
+            text-shadow: 0 0 5px var(--cyan);
+        }
+
+        .game-title {
+            font-size: 1.8em; /* Smaller game title */
+            margin-bottom: 10px;
+        }
+
+        p {
+            margin-bottom: 20px; /* Reduced margin */
+            color: var(--yellow);
+            font-size: 1.1em;
+        }
+
+        /* --- Score Displays --- */
+        .score-display {
+             margin-bottom: 15px;
+             font-size: 1em;
+             color: var(--white);
+             width: 100%;
+             display: flex;
+             justify-content: space-around; /* Space out scores */
+             flex-wrap: wrap; /* Allow wrapping on small screens */
+             gap: 10px;
+        }
+        .score-display span { font-weight: bold; }
+        #score-x, #start-score-x { color: var(--cyan); }
+        #score-o, #start-score-o { color: var(--magenta); }
+        #score-total, #start-score-total { color: var(--yellow); }
+
+        #start-scores {
+            display: none; /* Hidden by default */
+            margin-top: 15px; /* Space above start button */
+            border-top: 1px solid rgba(33, 247, 255, 0.3);
+            padding-top: 15px;
+        }
+        #start-scores.visible {
+            display: flex; /* Show when populated */
+        }
+
+
+        #status-area {
+            margin-bottom: 15px; /* Reduced margin */
+            font-size: 1.3em; /* Slightly smaller */
+            font-weight: bold;
+            color: var(--yellow);
+            min-height: 1.4em; /* Prevent layout shift */
+        }
+
+        /* --- Game Board --- */
+        #board {
+            display: grid;
+            grid-template-columns: repeat(3, clamp(60px, 18vw, 90px)); /* Slightly smaller max */
+            grid-template-rows: repeat(3, clamp(60px, 18vw, 90px));
+            gap: 8px;
+            margin-bottom: 20px; /* Reduced margin */
+            border: 3px solid var(--cyan);
+            padding: 8px;
+            background-color: var(--cell-bg);
+            border-radius: 10px;
+            box-shadow: 0 0 8px rgba(33, 247, 255, 0.5);
+        }
+
+        /* --- Board Cells --- */
+        .cell {
+            width: 100%;
+            height: 100%;
+            background-color: var(--dark-bg);
+            border: 2px solid rgba(33, 247, 255, 0.3);
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: clamp(2.5em, 9vw, 3.5em); /* Slightly smaller max font */
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+            user-select: none;
+        }
+
+        .cell:hover:not(.x):not(.o):not(.win) { /* Only hover effect on active empty cells */
+            background-color: var(--cell-bg);
+            border-color: var(--cyan);
+        }
+
+        .cell.x { color: var(--cyan); text-shadow: var(--border-glow); cursor: default; }
+        .cell.o { color: var(--magenta); text-shadow: 0 0 5px var(--magenta), 0 0 10px var(--magenta); cursor: default; }
+        .cell.win { background-color: var(--yellow); color: var(--dark-bg) !important; text-shadow: none !important; animation: pulse 0.8s infinite alternate; }
+
+        @keyframes pulse {
+            from { transform: scale(1); box-shadow: 0 0 5px var(--yellow); }
+            to { transform: scale(1.05); box-shadow: 0 0 15px var(--yellow); }
+        }
+
+        /* --- Buttons --- */
+        .button-container {
+            display: flex;
+            gap: 15px; /* Space between buttons */
+            margin-top: 10px;
+            flex-wrap: wrap; /* Allow buttons to wrap */
+            justify-content: center;
+        }
+
+        button {
+            padding: 10px 20px; /* Slightly smaller padding */
+            font-size: 1em; /* Slightly smaller font */
+            font-weight: bold;
+            color: var(--button-text);
+            background-color: var(--button-bg);
+            border: 2px solid var(--button-border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            background-color: var(--button-hover-bg);
+            color: var(--button-hover-text);
+            box-shadow: var(--border-glow);
+        }
+
+        #back-button {
+            border-color: var(--grey);
+            color: var(--grey);
+        }
+        #back-button:hover {
+            background-color: var(--grey);
+            color: var(--dark-bg);
+            box-shadow: 0 0 8px var(--grey);
+        }
+
+
+        /* --- Media Query for smaller screens --- */
+        @media (max-width: 480px) {
+            h1 { font-size: 2em; }
+            .game-title { font-size: 1.6em; }
+            #status-area { font-size: 1.2em; }
+            .score-display { font-size: 0.9em; justify-content: center; }
+            button { font-size: 0.9em; padding: 8px 15px; }
+            .screen { padding: 15px 20px 20px 20px; }
+        }
+         @media (max-width: 360px) {
+             h1 { font-size: 1.8em; }
+             .game-title { font-size: 1.4em; }
+         }
+
+    </style>
+</head>
+<body>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="screen active">
+        <h1>XENON TIC-TAC-TOE</h1>
+        <p>Get three in a row to win!</p>
+        <!-- Score display area for start screen -->
+        <div id="start-scores" class="score-display">
+             <span>X Wins: <span id="start-score-x">0</span></span>
+             <span>O Wins: <span id="start-score-o">0</span></span>
+             <span>Total Played: <span id="start-score-total">0</span></span>
+        </div>
+        <button id="start-button">Start Game</button>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen">
+        <h1 class="game-title">XENON TIC-TAC-TOE</h1>
+        <div id="status-area">Player X's Turn</div>
+        <!-- Score display area for game screen -->
+        <div id="game-scores" class="score-display">
+             <span>X Wins: <span id="score-x">0</span></span>
+             <span>O Wins: <span id="score-o">0</span></span>
+             <span>Total Played: <span id="score-total">0</span></span>
+        </div>
+        <div id="board">
+            <!-- Cells generated by loop or manually as before -->
+            <div class="cell" data-index="0"></div>
+            <div class="cell" data-index="1"></div>
+            <div class="cell" data-index="2"></div>
+            <div class="cell" data-index="3"></div>
+            <div class="cell" data-index="4"></div>
+            <div class="cell" data-index="5"></div>
+            <div class="cell" data-index="6"></div>
+            <div class="cell" data-index="7"></div>
+            <div class="cell" data-index="8"></div>
+        </div>
+        <div class="button-container">
+            <button id="restart-button">Restart Game</button>
+            <button id="back-button">Back to Menu</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const startScreen = document.getElementById('start-screen');
+            const gameScreen = document.getElementById('game-screen');
+            const startButton = document.getElementById('start-button');
+            const restartButton = document.getElementById('restart-button');
+            const backButton = document.getElementById('back-button'); // New button
+            const statusArea = document.getElementById('status-area');
+            const cells = document.querySelectorAll('.cell');
+            const boardElement = document.getElementById('board');
+
+            // Score display elements
+            const scoreXDisplay = document.getElementById('score-x');
+            const scoreODisplay = document.getElementById('score-o');
+            const scoreTotalDisplay = document.getElementById('score-total');
+            const startScoreXDisplay = document.getElementById('start-score-x');
+            const startScoreODisplay = document.getElementById('start-score-o');
+            const startScoreTotalDisplay = document.getElementById('start-score-total');
+            const startScoresContainer = document.getElementById('start-scores');
+          // --- Game State Variables ---
+            let boardState = ['', '', '', '', '', '', '', '', ''];
+            let currentPlayer = 'X';
+            let gameActive = false;
+            const winningCombinations = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+                [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
+                [0, 4, 8], [2, 4, 6]             // Diagonals
+            ];
+
+            // Score tracking variables
+            let xWins = 0;
+            let oWins = 0;
+            let totalGames = 0;
+
+            // --- Functions ---
+
+            const updateStatus = (message) => {
+                statusArea.textContent = message;
+                if (message.includes("X's Turn")) { statusArea.style.color = 'var(--cyan)'; }
+                else if (message.includes("O's Turn")) { statusArea.style.color = 'var(--magenta)'; }
+                else { statusArea.style.color = 'var(--yellow)'; } // Win/Draw messages
+            };
+
+            // New function to update all score displays
+            const updateScoreDisplay = () => {
+                scoreXDisplay.textContent = xWins;
+                scoreODisplay.textContent = oWins;
+                scoreTotalDisplay.textContent = totalGames;
+
+                startScoreXDisplay.textContent = xWins;
+                startScoreODisplay.textContent = oWins;
+                startScoreTotalDisplay.textContent = totalGames;
+
+                // Show scores on start screen only if games have been played
+                if (totalGames > 0) {
+                    startScoresContainer.classList.add('visible');
+                } else {
+                    startScoresContainer.classList.remove('visible');
+                }
+            };
+
+             // Function to handle common end-game tasks
+            const endGameRoutine = () => {
+                totalGames++;
+                gameActive = false;
+                boardElement.removeEventListener('click', handleCellClick); // Stop listening for clicks
+                updateScoreDisplay(); // Update scores everywhere
+            };
+
+
+            const handleCellClick = (event) => {
+                const clickedCell = event.target;
+                if (!clickedCell.classList.contains('cell') || !gameActive) return; // Ignore clicks outside cells or when inactive
+
+                const clickedCellIndex = parseInt(clickedCell.getAttribute('data-index'));
+
+                if (boardState[clickedCellIndex] !== '') {
+                    return; // Ignore clicks on filled cells
+                }
+
+                boardState[clickedCellIndex] = currentPlayer;
+                clickedCell.textContent = currentPlayer;
+                clickedCell.classList.add(currentPlayer.toLowerCase());
+
+                if (checkResult()) { // checkResult now handles ending the game
+                    return;
+                }
+
+                switchPlayer();
+            };
+
+            const startGame = () => {
+                boardState = ['', '', '', '', '', '', '', '', ''];
+                currentPlayer = 'X';
+                gameActive = true;
+
+                startScreen.classList.remove('active');
+                gameScreen.classList.add('active');
+
+                cells.forEach(cell => {
+                    cell.textContent = '';
+                    cell.className = 'cell'; // Reset classes completely
+                    // cell.classList.remove('x', 'o', 'win'); // Alternative
+                });
+
+                // Remove old listener and add new one for the board
+                boardElement.removeEventListener('click', handleCellClick);
+                boardElement.addEventListener('click', handleCellClick);
+
+                updateStatus(`Player ${currentPlayer}'s Turn`);
+                updateScoreDisplay(); // Show current scores when game starts/restarts
+            };
+
+            const switchPlayer = () => {
+                currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+                updateStatus(`Player ${currentPlayer}'s Turn`);
+            };
+
+            const checkResult = () => {
+                let roundWon = false;
+                let winningCombo = null;
+
+                for (let i = 0; i < winningCombinations.length; i++) {
+                    const winCondition = winningCombinations[i];
+                    const a = boardState[winCondition[0]];
+                    const b = boardState[winCondition[1]];
+                    const c = boardState[winCondition[2]];
+
+                    if (a === '' || b === '' || c === '') continue;
+                    if (a === b && b === c) {
+                        roundWon = true;
+                        winningCombo = winCondition;
+                        break;
+                    }
+                }
+
+                if (roundWon) {
+                    updateStatus(`Player ${currentPlayer} Wins!`);
+                    if (currentPlayer === 'X') xWins++;
+                    else oWins++;
+                    winningCombo.forEach(index => cells[index].classList.add('win'));
+                    endGameRoutine(); // Use the common end game function
+                    return true;
+                }
+
+                if (!boardState.includes('')) {
+                    updateStatus('Game Ended in a Draw!');
+                    endGameRoutine(); // Use the common end game function
+                    return true;
+                }
+
+                return false; // Game continues
+            };
+
+             // Functionality for the Back button
+            const goBackToMenu = () => {
+                gameActive = false; // Stop game logic if active
+                boardElement.removeEventListener('click', handleCellClick); // Stop listening
+                gameScreen.classList.remove('active');
+                startScreen.classList.add('active');
+                updateScoreDisplay(); // Ensure scores are visible on start screen if applicable
+            };
+
+
+            // --- Event Listeners ---
+            startButton.addEventListener('click', startGame);
+            restartButton.addEventListener('click', startGame); // Restart uses the same logic
+            backButton.addEventListener('click', goBackToMenu); // Listener for the new back button
+
+            // --- Initial Setup ---
+            updateScoreDisplay(); // Initialize score display (will show 0s)
+            startScreen.classList.add('active'); // Ensure start screen is shown initially
+            gameScreen.classList.remove('active');
+
+
+        }); // End DOMContentLoaded
+    </script>
+
+</body>
+</html>
