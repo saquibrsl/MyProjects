@@ -15,7 +15,17 @@
         }
         h1 {
             font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .back-link {
+            color: #28a745;
+            text-decoration: none;
+            font-size: 1em;
             margin-bottom: 20px;
+            display: inline-block;
+        }
+        .back-link:hover {
+            text-decoration: underline;
         }
         .game-container {
             display: flex;
@@ -55,15 +65,28 @@
             cursor: pointer;
             text-decoration: none;
             display: inline-block;
-            transition: background-color 0.3s;
+            transition: background-color 0.3s, transform 0.3s ease;
         }
         .play-button:hover {
             background-color: #218838;
+            transform: scale(1.1);
+        }
+        footer {
+            margin-top: 40px;
+            font-size: 0.8em;
+            color: #cccccc;
+        }
+        @media (max-width: 600px) {
+            .game-card {
+                width: 100%;
+                max-width: 300px;
+            }
         }
     </style>
 </head>
 <body>
     <h1>Welcome to My Games</h1>
+    <p><a href="https://saquibrs1.github.io/MyWebsite/" class="back-link">Back to Portfolio</a></p>
     <div class="game-container">
         <!-- Snake Game -->
         <div class="game-card">
@@ -101,5 +124,8 @@
             <a href="tic-tac-toe/index.html" class="play-button">Play</a>
         </div>
     </div>
+    <footer>
+        © 2025 saquibrs1. All rights reserved.
+    </footer>
 </body>
 </html>
