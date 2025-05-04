@@ -4,16 +4,102 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Games</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+        .game-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+        }
+        .game-card {
+            background-color: #2a2a2a;
+            border-radius: 10px;
+            padding: 20px;
+            width: 250px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        .game-card img {
+            width: 50px;
+            height: 50px;
+            margin-bottom: 10px;
+        }
+        .game-card h2 {
+            font-size: 1.5em;
+            margin: 10px 0;
+        }
+        .game-card p {
+            font-size: 0.9em;
+            color: #cccccc;
+            margin: 10px 0;
+        }
+        .play-button {
+            background-color: #28a745;
+            color: #ffffff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            font-size: 1em;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: background-color 0.3s;
+        }
+        .play-button:hover {
+            background-color: #218838;
+        }
+    </style>
 </head>
 <body>
     <h1>Welcome to My Games</h1>
-    <ul>
-        <li><a href="snake/index.html">Snake Game</a></li>
-        <li><a href="2048-puzzle/index.html">2048 Puzzle</a></li>
-        <li><a href="memory-game/index.html">Memory Game</a></li>
-        <li><a href="Ping-pong/index.html">Ping-pong</a></li>
-        <li><a href="tic-tac-toe/index.html">Tic Tac Toe</a></li>
-        <!-- Add more games as needed -->
-    </ul>
+    <div class="game-container">
+        <!-- Snake Game -->
+        <div class="game-card">
+            <img src="https://img.icons8.com/ios-filled/50/ffffff/snake-game.png" alt="Snake Icon">
+            <h2>Snake Game</h2>
+            <p>Guide the snake to eat food and grow!</p>
+            <a href="snake/index.html" class="play-button">Play</a>
+        </div>
+        <!-- 2048 Puzzle -->
+        <div class="game-card">
+            <img src="https://img.icons8.com/ios-filled/50/ffffff/puzzle.png" alt="2048 Icon">
+            <h2>2048 Puzzle</h2>
+            <p>Test your strategy skills!</p>
+            <a href="2048-puzzle/index.html" class="play-button">Play</a>
+        </div>
+        <!-- Memory Game -->
+        <div class="game-card">
+            <img src="https://img.icons8.com/ios-filled/50/ffffff/brain.png" alt="Memory Icon">
+            <h2>Memory Game</h2>
+            <p>Challenge your memory skills!</p>
+            <a href="memory-game/index.html" class="play-button">Play</a>
+        </div>
+        <!-- Pong 2 Player -->
+        <div class="game-card">
+            <img src="https://img.icons8.com/ios-filled/50/ffffff/ping-pong.png" alt="Pong Icon">
+            <h2>Pong 2 Player</h2>
+            <p>Play pong with a friend!</p>
+            <a href="Ping-pong/index.html" class="play-button">Play</a>
+        </div>
+        <!-- Tic Tac Toe -->
+        <div class="game-card">
+            <img src="https://img.icons8.com/ios-filled/50/ffffff/tic-tac-toe.png" alt="Tic Tac Toe Icon">
+            <h2>Tic Tac Toe</h2>
+            <p>Classic game of strategy!</p>
+            <a href="tic-tac-toe/index.html" class="play-button">Play</a>
+        </div>
+    </div>
 </body>
 </html>
